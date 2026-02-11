@@ -69,18 +69,20 @@ def bot(db):
 # ------------------------------------------------------------------
 
 
-def test_select_topic_custom_prompts(bot):
-    """Should return the first custom prompt."""
-    topic = _select_topic(bot)
+def test_select_topic_custom_prompts(bot, db):
+    """Should return the first custom prompt when use_trends is False."""
+    bot.use_trends = False
+    db.commit()
+    topic = _select_topic(bot, db)
     assert topic == "5 ejercicios rapidos"
 
 
 def test_select_topic_no_prompts(db):
     """Should return a default topic based on niche."""
-    b = Bot(name="NoPB", slug="nopb", niche="tech")
+    b = Bot(name="NoPB", slug="nopb", niche="tech", use_trends=False)
     db.add(b)
     db.commit()
-    topic = _select_topic(b)
+    topic = _select_topic(b, db)
     assert "tech" in topic
 
 
@@ -125,6 +127,9 @@ def test_set_error(db, bot):
 def test_run_pipeline_success(db, bot):
     """Full Phase 1 should create a content item in video_polling status."""
     fake_script = {"hook": "H", "body": "B", "cta": "C", "visual_cues": []}
+
+    bot.use_trends = False
+    db.commit()
 
     with patch("app.services.pipeline_orchestrator.script_generator") as sg, \
          patch("app.services.pipeline_orchestrator.video_generator") as vg, \
@@ -296,7 +301,9 @@ def test_resume_after_approval_no_credentials(db, bot):
     bot.telegram_chat_id = "12345"
     db.commit()
 
-    with patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+    with patch("app.services.pipeline_orchestrator.publisher") as pub, \
+         patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+        pub.publish_to_all = AsyncMock(return_value={})
         ta.notify_published = AsyncMock()
 
         result = asyncio.get_event_loop().run_until_complete(
@@ -317,7 +324,8 @@ def test_resume_after_approval_not_approved(db, bot):
     db.add(item)
     db.commit()
 
-    with patch("app.services.pipeline_orchestrator.telegram_approver"):
+    with patch("app.services.pipeline_orchestrator.publisher"), \
+         patch("app.services.pipeline_orchestrator.telegram_approver"):
         result = asyncio.get_event_loop().run_until_complete(
             resume_after_approval(item, bot, db)
         )

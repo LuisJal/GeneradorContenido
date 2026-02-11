@@ -20,7 +20,8 @@ from sqlalchemy.orm import Session
 from app.models.bot import Bot
 from app.models.content import ContentItem, ContentStatus
 from app.models.log_entry import PipelineLog
-from app.services import script_generator, video_generator, telegram_approver
+from app.services import script_generator, video_generator, telegram_approver, publisher
+from app.services.trend_scraper import get_trending_topics, select_unused_topic
 from app.utils.logging_config import get_logger
 
 logger = get_logger("pipeline")
@@ -83,18 +84,27 @@ def _set_error(
     db.commit()
 
 
-def _select_topic(bot: Bot) -> str:
+def _select_topic(bot: Bot, db: Session) -> str:
     """Select the next topic for content generation.
 
-    If ``bot.use_trends`` is True, this would normally call the trend scraper.
-    For now, falls back to cycling through ``bot.custom_prompts`` or returning
-    a default topic string.
+    If ``bot.use_trends`` is True, scrapes Google Trends and Reddit to find
+    a fresh topic.  Otherwise cycles through ``bot.custom_prompts``.
     """
+    if bot.use_trends:
+        try:
+            topics = get_trending_topics(bot)
+            if topics:
+                topic = select_unused_topic(bot, db, topics)
+                if topic:
+                    return topic
+        except Exception as exc:
+            logger.warning("Trend scraping failed, falling back: %s", exc)
+
     if bot.custom_prompts:
-        # Simple round-robin: use the first prompt
         prompts = bot.custom_prompts
         if isinstance(prompts, list) and prompts:
             return prompts[0]
+
     return f"Contenido sobre {bot.niche}"
 
 
@@ -125,7 +135,7 @@ async def run_pipeline(bot: Bot, db: Session) -> ContentItem:
     try:
         # 2. Topic selection
         _set_status(db, content, ContentStatus.TREND_SCRAPING)
-        topic = _select_topic(bot)
+        topic = _select_topic(bot, db)
         content.trend_topic = topic
         db.commit()
         _log(db, bot.id, content_id, "topic_selected", f"Topic: {topic}")
@@ -279,54 +289,25 @@ async def resume_after_approval(content: ContentItem, bot: Bot, db: Session) -> 
 
     _set_status(db, content, ContentStatus.PUBLISHING)
 
-    published_count = 0
-    total_platforms = 0
+    results = await publisher.publish_to_all(bot, content, db)
 
-    # Publication to each platform (stub for now -- Fase 8)
-    for credential in bot.credentials:
-        if not credential.is_active:
-            continue
-        total_platforms += 1
-        platform = credential.platform
-
-        try:
-            _log(db, bot.id, content_id, f"publishing_{platform}",
-                 f"Publishing to {platform}...")
-
-            # TODO (Fase 8): Call actual platform publishers
-            # if platform == "instagram":
-            #     ig_id = await instagram_client.publish(...)
-            #     content.publish_instagram_id = ig_id
-            # elif platform == "youtube":
-            #     yt_id = await youtube_client.publish(...)
-            #     content.publish_youtube_id = yt_id
-            # elif platform == "tiktok":
-            #     tt_id = await tiktok_client.publish(...)
-            #     content.publish_tiktok_id = tt_id
-
-            published_count += 1
-            _log(db, bot.id, content_id, f"published_{platform}",
-                 f"Published to {platform}")
-
-        except Exception as exc:
-            error_msg = f"Publish to {platform} failed: {exc}"
-            _log(db, bot.id, content_id, f"publish_error_{platform}",
-                 error_msg, level="ERROR")
+    total_active = sum(1 for c in bot.credentials if c.is_active)
+    published_count = len(results)
 
     # Final status
-    if total_platforms == 0:
-        # No active credentials -- mark as published anyway (video was approved)
+    if total_active == 0:
         _set_status(db, content, ContentStatus.PUBLISHED)
         _log(db, bot.id, content_id, "published",
              "No active platform credentials; marked as published")
-    elif published_count == total_platforms:
+    elif published_count == total_active:
         _set_status(db, content, ContentStatus.PUBLISHED)
         _log(db, bot.id, content_id, "published",
-             f"Published to all {total_platforms} platforms")
+             f"Published to all {total_active} platforms: {results}")
     elif published_count > 0:
         _set_status(db, content, ContentStatus.PARTIALLY_PUBLISHED)
         _log(db, bot.id, content_id, "partially_published",
-             f"Published to {published_count}/{total_platforms} platforms", level="WARNING")
+             f"Published to {published_count}/{total_active} platforms: {results}",
+             level="WARNING")
     else:
         _set_status(db, content, ContentStatus.FAILED)
         _log(db, bot.id, content_id, "publish_failed",

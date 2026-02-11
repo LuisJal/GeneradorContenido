@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Configuracion - GeneradorContenido{% endblock %}
+
+{% block content %}
+<h1>Configuracion Global</h1>
+
+{% if message %}
+<div class="flash-success">{{ message }}</div>
+{% endif %}
+
+<p>Estas claves se comparten entre todos los bots. Las credenciales de publicacion (Instagram, YouTube, TikTok) se configuran en cada bot individualmente.</p>
+
+<form method="post" action="/settings">
+    <fieldset class="settings-fieldset">
+        <legend>Gemini (generacion de guiones)</legend>
+
+        <label for="gemini_api_key">Gemini API Key</label>
+        <input type="password" id="gemini_api_key" name="gemini_api_key"
+               placeholder="{% if current.gemini_api_key %}{{ current.gemini_api_key }}{% else %}AIzaSy...{% endif %}">
+        <small>Clave API de Gemini para generar guiones y descripciones.</small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>Google Cloud / Veo 3 (generacion de video)</legend>
+
+        <label for="google_cloud_project">ID del proyecto Google Cloud</label>
+        <input type="text" id="google_cloud_project" name="google_cloud_project"
+               value="{{ current.google_cloud_project or '' }}"
+               placeholder="my-gcp-project-id">
+        <small>Necesario para generar videos con Veo 3 via Vertex AI.</small>
+
+        <label for="google_application_credentials">Ruta al archivo Service Account JSON</label>
+        <input type="text" id="google_application_credentials" name="google_application_credentials"
+               value="{{ current.google_application_credentials or '' }}"
+               placeholder="/path/to/service-account.json">
+        <small>Archivo de credenciales de servicio de Google Cloud.</small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>Kling 3.0 (proveedor de video alternativo)</legend>
+
+        <label for="kling_api_key">Kling API Key</label>
+        <input type="password" id="kling_api_key" name="kling_api_key"
+               placeholder="{% if current.kling_api_key %}{{ current.kling_api_key }}{% else %}Tu clave API de Kling{% endif %}">
+        <small>Alternativa a Veo 3 para generar videos.</small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>Telegram (notificaciones opcionales)</legend>
+
+        <label for="telegram_bot_token">Token del Bot de Telegram</label>
+        <input type="password" id="telegram_bot_token" name="telegram_bot_token"
+               placeholder="{% if current.telegram_bot_token %}{{ current.telegram_bot_token }}{% else %}123456:ABC-DEF...{% endif %}">
+        <small>Token para enviar notificaciones via Telegram (opcional).</small>
+    </fieldset>
+
+    <button type="submit">Guardar configuracion</button>
+    <a href="/" role="button" class="secondary outline">Volver al Dashboard</a>
+</form>
+{% endblock %}

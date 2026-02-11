@@ -17,6 +17,7 @@ from app.models.credential import SocialCredential
 from app.models.log_entry import PipelineLog
 from app.schemas.bot import BotCreate, BotUpdate, PostingSchedule
 from app.services import bot_manager
+from app.services.settings_manager import get_all_settings, save_setting, SETTING_DEFINITIONS
 from app.utils.encryption import FieldEncryptor
 
 router = APIRouter()
@@ -34,6 +35,29 @@ async def dashboard_home(request: Request, db: Session = Depends(get_db)):
     bots = bot_manager.list_bots(db)
     return templates.TemplateResponse(request, "dashboard.html", {
         "bots": bots,
+    })
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, db: Session = Depends(get_db)):
+    current = get_all_settings(db)
+    return templates.TemplateResponse(request, "settings.html", {
+        "current": current,
+        "message": None,
+    })
+
+
+@router.post("/settings")
+async def settings_save(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    for key in SETTING_DEFINITIONS:
+        value = form.get(key, "")
+        if value:
+            save_setting(db, key, value)
+    current = get_all_settings(db)
+    return templates.TemplateResponse(request, "settings.html", {
+        "current": current,
+        "message": "Configuracion guardada correctamente.",
     })
 
 

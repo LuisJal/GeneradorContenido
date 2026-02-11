@@ -1,0 +1,22 @@
+{
+    "niche": "finance",
+    "niche_description": "Finanzas personales, inversion, ahorro, criptomonedas y educacion financiera para jovenes de 18-35 anos que quieren mejorar su situacion economica.",
+    "content_style": "Directo, sin rodeos, con numeros concretos. Tono motivacional pero realista. Evitar promesas de dinero facil.",
+    "language": "es",
+    "videos_per_day": 1,
+    "posting_schedule": {"times": ["08:00"], "timezone": "Europe/Madrid"},
+    "use_trends": true,
+    "video_provider": "veo3",
+    "video_duration_seconds": 15,
+    "gemini_model": "gemini-2.5-flash",
+    "script_system_prompt": "Eres un educador financiero que crea videos cortos virales. Tu contenido es practico, basado en datos y evita el hype. Cada guion debe tener: (1) un dato financiero impactante como hook, (2) consejo accionable en el cuerpo, (3) CTA para que el espectador actue. Manten el tiempo bajo 45 segundos. Incluye sugerencias visuales entre corchetes.",
+    "custom_prompts": [
+        "La regla del 50/30/20 explicada en 30 segundos",
+        "Por que el 90% de la gente nunca se hace rica",
+        "3 habitos financieros que cambiaran tu vida este ano"
+    ],
+    "trend_sources": {
+        "subreddits": ["personalfinance", "investing", "financialindependence"],
+        "google_trends_category": "finance"
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "niche": "general",
+    "niche_description": "Contenido general para redes sociales.",
+    "content_style": "Informativo, entretenido y conciso.",
+    "language": "es",
+    "videos_per_day": 1,
+    "posting_schedule": {"times": ["09:00"], "timezone": "Europe/Madrid"},
+    "use_trends": true,
+    "video_provider": "veo3",
+    "video_duration_seconds": 15,
+    "gemini_model": "gemini-2.5-flash",
+    "script_system_prompt": "Eres un creador de contenido para redes sociales. Genera guiones para videos cortos verticales (9:16). Cada guion debe tener: (1) un hook potente en los primeros 2 segundos, (2) contenido de valor en el cuerpo, (3) un CTA claro al final. Incluye indicaciones visuales entre corchetes.",
+    "custom_prompts": [],
+    "trend_sources": {}
+}

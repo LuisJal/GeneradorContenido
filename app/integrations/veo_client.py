@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 from google import genai
-from google.genai.types import GenerateVideosConfig
+from google.genai.types import GenerateVideosConfig, GenerateVideosOperation
 
 from app.utils.logging_config import get_logger
 
@@ -18,30 +18,55 @@ logger = get_logger("integrations.veo_client")
 _POLL_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
 _POLL_INTERVAL_SECONDS: int = 15
 
+# Gemini API only supports these durations.
+_GEMINI_API_VALID_DURATIONS = (4, 6, 8)
+
+# Model names per authentication mode.
+_MODEL_VERTEX = "veo-3.1-generate-001"
+_MODEL_GEMINI_API = "veo-3.1-generate-preview"
+
 
 class Veo3Client:
-    """Client for Google Veo 3.1 video generation via Vertex AI.
+    """Client for Google Veo 3.1 video generation.
 
-    Uses the ``google-genai`` SDK (v1.47+) with ``vertexai=True``.
+    Supports two authentication modes:
+    - **Gemini API key**: pass ``api_key`` (simpler, uses Google AI Studio quota).
+    - **Vertex AI**: pass ``project_id`` (requires GCP billing).
+
+    When ``api_key`` is provided it takes precedence over ``project_id``.
     """
 
     def __init__(
         self,
-        project_id: str,
+        api_key: Optional[str] = None,
+        project_id: Optional[str] = None,
         location: Optional[str] = None,
     ) -> None:
-        self._project_id = project_id
-        self._location = location or "us-central1"
-        self._client = genai.Client(
-            vertexai=True,
-            project=self._project_id,
-            location=self._location,
-        )
-        logger.info(
-            "Veo3Client initialised (project=%s, location=%s)",
-            self._project_id,
-            self._location,
-        )
+        if api_key:
+            self._mode = "gemini_api"
+            self._api_key = api_key
+            self._client = genai.Client(api_key=api_key)
+            self._model = _MODEL_GEMINI_API
+            logger.info("Veo3Client initialised (mode=gemini_api)")
+        elif project_id:
+            self._mode = "vertex"
+            self._api_key = None
+            self._location = location or "us-central1"
+            self._client = genai.Client(
+                vertexai=True,
+                project=project_id,
+                location=self._location,
+            )
+            self._model = _MODEL_VERTEX
+            logger.info(
+                "Veo3Client initialised (mode=vertex, project=%s, location=%s)",
+                project_id,
+                self._location,
+            )
+        else:
+            raise ValueError(
+                "Veo3Client requires either api_key or project_id."
+            )
 
     # ------------------------------------------------------------------
     # Video generation
@@ -50,7 +75,7 @@ class Veo3Client:
     async def generate_video(
         self,
         prompt: str,
-        duration: int = 15,
+        duration: int = 8,
         aspect_ratio: str = "9:16",
     ) -> str:
         """Submit a video generation request.
@@ -60,7 +85,9 @@ class Veo3Client:
         prompt:
             Natural-language description of the desired video.
         duration:
-            Target video duration in seconds (default ``15``).
+            Target video duration in seconds.  For Gemini API mode only
+            4, 6 or 8 are accepted; other values are clamped to the
+            nearest valid option.
         aspect_ratio:
             Aspect ratio string, e.g. ``"9:16"`` or ``"16:9"``.
 
@@ -69,24 +96,40 @@ class Veo3Client:
         str
             The long-running operation name / ID used for polling.
         """
+        # Clamp duration for Gemini API mode.
+        if self._mode == "gemini_api" and duration not in _GEMINI_API_VALID_DURATIONS:
+            clamped = min(_GEMINI_API_VALID_DURATIONS, key=lambda d: abs(d - duration))
+            logger.warning(
+                "Gemini API only supports durations %s; clamping %ss -> %ss",
+                _GEMINI_API_VALID_DURATIONS,
+                duration,
+                clamped,
+            )
+            duration = clamped
+
         logger.info(
-            "Submitting Veo 3 video generation (duration=%ss, ratio=%s)",
+            "Submitting Veo 3 video generation (model=%s, duration=%ss, ratio=%s)",
+            self._model,
             duration,
             aspect_ratio,
         )
 
-        config = GenerateVideosConfig(
-            aspect_ratio=aspect_ratio,
-            duration_seconds=duration,
-            generate_audio=True,
-            person_generation="allow_all",
-        )
+        config_kwargs = {
+            "aspect_ratio": aspect_ratio,
+            "duration_seconds": duration,
+            "person_generation": "allow_all",
+        }
+        # generate_audio is only supported in Vertex AI mode.
+        if self._mode == "vertex":
+            config_kwargs["generate_audio"] = True
+
+        config = GenerateVideosConfig(**config_kwargs)
 
         # The SDK call is synchronous; run it in a thread so we don't block
         # the event loop.
         operation = await asyncio.to_thread(
             self._client.models.generate_videos,
-            model="veo-3.1-generate-001",
+            model=self._model,
             prompt=prompt,
             config=config,
         )
@@ -107,15 +150,6 @@ class Veo3Client:
     ) -> Dict[str, Any]:
         """Poll a video generation operation until completion or timeout.
 
-        Parameters
-        ----------
-        operation_name:
-            The operation name returned by :meth:`generate_video`.
-        timeout:
-            Maximum wall-clock seconds to wait (default 15 min).
-        interval:
-            Seconds between successive polls (default 15 s).
-
         Returns
         -------
         dict
@@ -126,9 +160,11 @@ class Veo3Client:
         start = time.monotonic()
 
         while time.monotonic() - start < timeout:
+            # The SDK expects a GenerateVideosOperation object.
+            op_ref = GenerateVideosOperation(name=operation_name)
             operation = await asyncio.to_thread(
                 self._client.operations.get,
-                operation=operation_name,
+                operation=op_ref,
             )
 
             if operation.done:
@@ -193,7 +229,7 @@ class Veo3Client:
         Parameters
         ----------
         video_url:
-            The remote URL (typically a GCS signed URL) of the video.
+            The remote URL of the video.
         local_path:
             Destination path on the local file system.
 
@@ -206,8 +242,12 @@ class Veo3Client:
         dest = Path(local_path)
         dest.parent.mkdir(parents=True, exist_ok=True)
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
-            async with client.stream("GET", video_url) as response:
+        headers = {}
+        if self._api_key:
+            headers["x-goog-api-key"] = self._api_key
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
+            async with client.stream("GET", video_url, headers=headers) as response:
                 response.raise_for_status()
                 with open(dest, "wb") as fh:
                     async for chunk in response.aiter_bytes(chunk_size=1024 * 64):

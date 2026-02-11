@@ -26,6 +26,7 @@ def _make_bot(provider: str = "veo3") -> MagicMock:
     bot.video_duration_seconds = 15
     bot.video_aspect_ratio = "9:16"
     bot.slug = "testbot"
+    bot.gemini_api_key_encrypted = None
     return bot
 
 
@@ -34,11 +35,25 @@ def _make_bot(provider: str = "veo3") -> MagicMock:
 # ------------------------------------------------------------------
 
 
-def test_get_client_veo3():
-    """provider='veo3' should create a Veo3Client."""
+def test_get_client_veo3_with_api_key():
+    """provider='veo3' with GEMINI_API_KEY should use api_key mode."""
     bot = _make_bot("veo3")
 
     with patch("app.services.video_generator.settings") as mock_settings:
+        mock_settings.gemini_api_key = "test-gemini-key"
+        mock_settings.encryption_key = "fake"
+        with patch("app.services.video_generator.Veo3Client") as veo_cls:
+            result = _get_client(bot)
+            veo_cls.assert_called_once_with(api_key="test-gemini-key")
+
+
+def test_get_client_veo3_with_project():
+    """provider='veo3' without API key should fall back to Vertex AI."""
+    bot = _make_bot("veo3")
+
+    with patch("app.services.video_generator.settings") as mock_settings:
+        mock_settings.gemini_api_key = ""
+        mock_settings.encryption_key = ""
         mock_settings.google_cloud_project = "my-project"
         with patch("app.services.video_generator.Veo3Client") as veo_cls:
             result = _get_client(bot)
@@ -63,13 +78,15 @@ def test_get_client_unsupported():
         _get_client(bot)
 
 
-def test_get_client_veo3_no_project():
-    """Missing project should raise ValueError."""
+def test_get_client_veo3_no_credentials():
+    """Missing both API key and project should raise ValueError."""
     bot = _make_bot("veo3")
 
     with patch("app.services.video_generator.settings") as mock_settings:
+        mock_settings.gemini_api_key = ""
+        mock_settings.encryption_key = ""
         mock_settings.google_cloud_project = ""
-        with pytest.raises(ValueError, match="GOOGLE_CLOUD_PROJECT"):
+        with pytest.raises(ValueError, match="GEMINI_API_KEY"):
             _get_client(bot)
 
 

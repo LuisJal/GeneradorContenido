@@ -17,12 +17,28 @@ logger = get_logger("services.video_generator")
 # ---------------------------------------------------------------------------
 
 def _get_veo3_client(bot: Bot) -> Veo3Client:
-    """Build a :class:`Veo3Client` using bot / global settings."""
+    """Build a :class:`Veo3Client` using bot / global settings.
+
+    Prefers Gemini API key (simpler) over Vertex AI project.
+    """
+    # Try Gemini API key first (bot-level override or global).
+    from app.utils.encryption import FieldEncryptor
+    api_key = None
+    if bot.gemini_api_key_encrypted and settings.encryption_key:
+        enc = FieldEncryptor(settings.encryption_key)
+        api_key = enc.decrypt(bot.gemini_api_key_encrypted)
+    if not api_key:
+        api_key = settings.gemini_api_key
+
+    if api_key:
+        return Veo3Client(api_key=api_key)
+
+    # Fall back to Vertex AI.
     project_id = settings.google_cloud_project
     if not project_id:
         raise ValueError(
-            "Google Cloud project is not configured "
-            "(set GOOGLE_CLOUD_PROJECT in .env)"
+            "No video generation credentials configured. "
+            "Set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT in .env"
         )
     return Veo3Client(project_id=project_id)
 

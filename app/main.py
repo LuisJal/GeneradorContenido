@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers.dashboard import router as dashboard_router
+from app.routers.webhooks import router as webhooks_router
 from app.utils.logging_config import setup_logging, get_logger
 
 logger = get_logger("main")
@@ -32,6 +33,7 @@ app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="stati
 
 # Routers
 app.include_router(dashboard_router)
+app.include_router(webhooks_router)
 
 
 # --- Health endpoint ---

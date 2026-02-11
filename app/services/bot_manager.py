@@ -107,9 +107,11 @@ def update_bot(db: Session, slug: str, data: BotUpdate) -> Optional[Bot]:
             enc = _get_encryptor()
             bot.gemini_api_key_encrypted = enc.encrypt(api_key)
 
-    # Handle posting_schedule (convert Pydantic model to dict)
+    # Handle posting_schedule (convert Pydantic model to dict if needed)
     if "posting_schedule" in update_data and update_data["posting_schedule"] is not None:
-        update_data["posting_schedule"] = update_data["posting_schedule"].model_dump()
+        ps = update_data["posting_schedule"]
+        if not isinstance(ps, dict):
+            update_data["posting_schedule"] = ps.model_dump()
 
     for field, value in update_data.items():
         if value is not None and hasattr(bot, field):

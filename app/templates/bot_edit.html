@@ -109,6 +109,16 @@
                     >
                         {% if cred.is_active %}Desactivar{% else %}Activar{% endif %}
                     </button>
+                    <button
+                        hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/delete"
+                        hx-swap="outerHTML"
+                        hx-target="closest tr"
+                        hx-confirm="Eliminar credencial de {{ cred.platform }}?"
+                        class="btn-action danger"
+                        style="padding: 0.3rem 0.8rem; font-size: 0.8rem;"
+                    >
+                        Eliminar
+                    </button>
                 </td>
             </tr>
             {% endfor %}

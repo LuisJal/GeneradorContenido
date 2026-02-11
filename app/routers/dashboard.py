@@ -185,8 +185,12 @@ async def bot_edit_submit(
         return RedirectResponse(url=f"/bots/{slug}", status_code=303)
     except (ValueError, Exception) as e:
         bot = bot_manager.get_bot_by_slug(db, slug)
+        credentials = db.query(SocialCredential).filter(
+            SocialCredential.bot_id == bot.id
+        ).all() if bot else []
         return templates.TemplateResponse(request, "bot_edit.html", {
             "bot": bot,
+            "credentials": credentials,
             "errors": {"general": str(e)},
         }, status_code=400)
 
@@ -320,6 +324,70 @@ async def bot_add_credential(
     db.commit()
 
     return RedirectResponse(url=f"/bots/{slug}/edit", status_code=303)
+
+
+@router.post("/bots/{slug}/credentials/{cred_id}/toggle")
+async def bot_toggle_credential(
+    request: Request, slug: str, cred_id: int, db: Session = Depends(get_db),
+):
+    """Toggle a credential's active state via HTMX."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    cred = db.query(SocialCredential).filter(
+        SocialCredential.id == cred_id, SocialCredential.bot_id == bot.id
+    ).first()
+    if not cred:
+        return HTMLResponse("Credential not found", status_code=404)
+
+    cred.is_active = not cred.is_active
+    db.commit()
+
+    # Return updated table row for HTMX swap
+    status_html = (
+        '<span class="badge-active"><span class="pulse-dot"></span> Activa</span>'
+        if cred.is_active
+        else '<span class="badge-inactive">Inactiva</span>'
+    )
+    toggle_label = "Desactivar" if cred.is_active else "Activar"
+    return HTMLResponse(f"""<tr>
+        <td>{cred.platform.capitalize()}</td>
+        <td>{cred.platform_user_id or "-"}</td>
+        <td>{status_html}</td>
+        <td>
+            <button hx-post="/bots/{slug}/credentials/{cred.id}/toggle"
+                    hx-swap="outerHTML" hx-target="closest tr"
+                    class="btn-action" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                {toggle_label}
+            </button>
+            <button hx-post="/bots/{slug}/credentials/{cred.id}/delete"
+                    hx-swap="outerHTML" hx-target="closest tr"
+                    hx-confirm="Eliminar credencial de {cred.platform}?"
+                    class="btn-action danger" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                Eliminar
+            </button>
+        </td>
+    </tr>""")
+
+
+@router.post("/bots/{slug}/credentials/{cred_id}/delete")
+async def bot_delete_credential(
+    slug: str, cred_id: int, db: Session = Depends(get_db),
+):
+    """Delete a credential via HTMX."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    cred = db.query(SocialCredential).filter(
+        SocialCredential.id == cred_id, SocialCredential.bot_id == bot.id
+    ).first()
+    if not cred:
+        return HTMLResponse("Credential not found", status_code=404)
+
+    db.delete(cred)
+    db.commit()
+    # Return empty string to remove the row
+    return HTMLResponse("")
 
 
 @router.post("/bots/{slug}/content/{content_id}/approve")

@@ -1,0 +1,27 @@
+<article>
+    <header>
+        <hgroup>
+            <h3>{{ bot.name }}</h3>
+            <p>{{ bot.niche }}</p>
+        </hgroup>
+        {% if bot.is_enabled %}
+        <span class="badge-active">Activo</span>
+        {% else %}
+        <span class="badge-inactive">Inactivo</span>
+        {% endif %}
+    </header>
+
+    <p>{{ bot.niche_description[:100] }}{% if bot.niche_description|length > 100 %}...{% endif %}</p>
+
+    <footer>
+        <a href="/bots/{{ bot.slug }}" role="button" class="outline">Ver detalle</a>
+        <button
+            hx-post="/bots/{{ bot.slug }}/toggle"
+            hx-swap="outerHTML"
+            hx-target="closest article"
+            class="secondary outline"
+        >
+            {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
+        </button>
+    </footer>
+</article>

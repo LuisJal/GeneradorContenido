@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - GeneradorContenido{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>Dashboard</h1>
+    <p>Gestiona tus bots de contenido autonomo</p>
+</hgroup>
+
+{% if bots %}
+<div class="grid">
+    {% for bot in bots %}
+    {% include "partials/bot_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<article>
+    <header>
+        <h3>No hay bots configurados</h3>
+    </header>
+    <p>Crea tu primer bot para empezar a generar contenido automaticamente.</p>
+    <a href="/bots/new" role="button">Crear primer bot</a>
+</article>
+{% endif %}
+{% endblock %}

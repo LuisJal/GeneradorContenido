@@ -1,0 +1,33 @@
+/* GeneradorContenido - Custom styles */
+
+.badge-active {
+    background: #2ecc40;
+    color: white;
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.badge-inactive {
+    background: #aaa;
+    color: white;
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+/* Status badges for pipeline states */
+.status-badge {
+    display: inline-block;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: bold;
+}
+
+.status-published { background: #2ecc40; color: white; }
+.status-failed { background: #e74c3c; color: white; }
+.status-pending { background: #f39c12; color: white; }
+.status-processing { background: #3498db; color: white; }

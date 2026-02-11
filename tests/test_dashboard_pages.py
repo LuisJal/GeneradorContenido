@@ -139,9 +139,9 @@ def test_logs_with_entries(client):
 def test_credentials_page(client):
     db = _get_db()
     bot = _create_bot(db)
-    response = client.get(f"/bots/{bot.slug}/credentials")
-    assert response.status_code == 200
-    assert "Agregar credencial" in response.text
+    response = client.get(f"/bots/{bot.slug}/credentials", follow_redirects=False)
+    assert response.status_code == 302
+    assert f"/bots/{bot.slug}/edit" in response.headers["location"]
 
 
 def test_add_credential(client):

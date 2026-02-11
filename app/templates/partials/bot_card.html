@@ -1,27 +1,22 @@
-<article>
+<article class="bot-card">
     <header>
         <hgroup>
-            <h3>{{ bot.name }}</h3>
-            <p>{{ bot.niche }}</p>
+            <h3><a href="/bots/{{ bot.slug }}">{{ bot.name }}</a></h3>
+            <p>{{ bot.niche }}
+                {% if bot.is_enabled %}
+                <span class="badge-active">Activo</span>
+                {% else %}
+                <span class="badge-inactive">Inactivo</span>
+                {% endif %}
+            </p>
         </hgroup>
-        {% if bot.is_enabled %}
-        <span class="badge-active">Activo</span>
-        {% else %}
-        <span class="badge-inactive">Inactivo</span>
-        {% endif %}
     </header>
 
-    <p>{{ bot.niche_description[:100] }}{% if bot.niche_description|length > 100 %}...{% endif %}</p>
+    {% if bot.niche_description %}
+    <p class="truncate">{{ bot.niche_description[:120] }}{% if bot.niche_description|length > 120 %}...{% endif %}</p>
+    {% endif %}
 
     <footer>
-        <a href="/bots/{{ bot.slug }}" role="button" class="outline">Ver detalle</a>
-        <button
-            hx-post="/bots/{{ bot.slug }}/toggle"
-            hx-swap="outerHTML"
-            hx-target="closest article"
-            class="secondary outline"
-        >
-            {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
-        </button>
+        <a href="/bots/{{ bot.slug }}" role="button" class="outline">Gestionar</a>
     </footer>
 </article>

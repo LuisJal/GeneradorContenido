@@ -84,8 +84,6 @@ async def bot_create_submit(
     use_trends: Optional[str] = Form(None),
     video_provider: str = Form("veo3"),
     video_duration_seconds: int = Form(15),
-    gemini_api_key: str = Form(""),
-    telegram_chat_id: str = Form(""),
     contact_email: str = Form(""),
     template: str = Form(""),
 ):
@@ -104,8 +102,6 @@ async def bot_create_submit(
             use_trends=use_trends is not None,
             video_provider=video_provider,
             video_duration_seconds=video_duration_seconds,
-            gemini_api_key=gemini_api_key or None,
-            telegram_chat_id=telegram_chat_id or None,
             contact_email=contact_email or None,
             template=template or None,
         )
@@ -123,8 +119,14 @@ async def bot_detail(request: Request, slug: str, db: Session = Depends(get_db))
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    from app.models.content import ContentStatus
+    pending_count = db.query(ContentItem).filter(
+        ContentItem.bot_id == bot.id,
+        ContentItem.status == ContentStatus.PENDING_APPROVAL.value,
+    ).count()
     return templates.TemplateResponse(request, "bot_detail.html", {
         "bot": bot,
+        "pending_count": pending_count,
     })
 
 
@@ -133,8 +135,12 @@ async def bot_edit_form(request: Request, slug: str, db: Session = Depends(get_d
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    credentials = db.query(SocialCredential).filter(
+        SocialCredential.bot_id == bot.id
+    ).all()
     return templates.TemplateResponse(request, "bot_edit.html", {
         "bot": bot,
+        "credentials": credentials,
         "errors": {},
     })
 
@@ -153,8 +159,6 @@ async def bot_edit_submit(
     use_trends: Optional[str] = Form(None),
     video_provider: str = Form("veo3"),
     video_duration_seconds: int = Form(15),
-    gemini_api_key: str = Form(""),
-    telegram_chat_id: str = Form(""),
     contact_email: str = Form(""),
     script_system_prompt: str = Form(""),
 ):
@@ -171,8 +175,6 @@ async def bot_edit_submit(
             use_trends=use_trends is not None,
             video_provider=video_provider,
             video_duration_seconds=video_duration_seconds,
-            gemini_api_key=gemini_api_key or None,
-            telegram_chat_id=telegram_chat_id or None,
             contact_email=contact_email or None,
             script_system_prompt=script_system_prompt or None,
         )
@@ -280,18 +282,10 @@ async def bot_logs(request: Request, slug: str, db: Session = Depends(get_db)):
     })
 
 
-@router.get("/bots/{slug}/credentials", response_class=HTMLResponse)
-async def bot_credentials(request: Request, slug: str, db: Session = Depends(get_db)):
-    bot = bot_manager.get_bot_by_slug(db, slug)
-    if not bot:
-        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
-    credentials = db.query(SocialCredential).filter(
-        SocialCredential.bot_id == bot.id
-    ).all()
-    return templates.TemplateResponse(request, "credentials.html", {
-        "bot": bot,
-        "credentials": credentials,
-    })
+@router.get("/bots/{slug}/credentials")
+async def bot_credentials(slug: str):
+    """Redirect to bot edit page where credentials are now managed."""
+    return RedirectResponse(url=f"/bots/{slug}/edit", status_code=302)
 
 
 @router.post("/bots/{slug}/credentials")
@@ -321,7 +315,7 @@ async def bot_add_credential(
     db.add(cred)
     db.commit()
 
-    return RedirectResponse(url=f"/bots/{slug}/credentials", status_code=303)
+    return RedirectResponse(url=f"/bots/{slug}/edit", status_code=303)
 
 
 @router.post("/bots/{slug}/delete")

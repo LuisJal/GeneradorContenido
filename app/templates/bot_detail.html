@@ -14,6 +14,13 @@
     </p>
 </hgroup>
 
+{% if pending_count and pending_count > 0 %}
+<div class="pending-banner">
+    {{ pending_count }} contenido{{ "s" if pending_count > 1 }} pendiente{{ "s" if pending_count > 1 }} de aprobacion
+    &mdash; <a href="/bots/{{ bot.slug }}/content?filter=pending_approval">Revisar ahora</a>
+</div>
+{% endif %}
+
 <div class="grid">
     <article>
         <header><h3>Configuracion</h3></header>
@@ -23,40 +30,24 @@
             <tr><td><strong>Videos/dia</strong></td><td>{{ bot.videos_per_day }}</td></tr>
             <tr><td><strong>Proveedor video</strong></td><td>{{ bot.video_provider }}</td></tr>
             <tr><td><strong>Duracion</strong></td><td>{{ bot.video_duration_seconds }}s</td></tr>
-            <tr><td><strong>Modelo Gemini</strong></td><td>{{ bot.gemini_model }}</td></tr>
             <tr><td><strong>Tendencias</strong></td><td>{{ "Si" if bot.use_trends else "No" }}</td></tr>
-            <tr><td><strong>Telegram</strong></td><td>{{ bot.telegram_chat_id or "No configurado" }}</td></tr>
         </table>
     </article>
 
     <article>
         <header><h3>Descripcion del nicho</h3></header>
         <p>{{ bot.niche_description or "Sin descripcion" }}</p>
+        {% if bot.content_style %}
         <hr>
         <h4>Estilo</h4>
-        <p>{{ bot.content_style or "Sin estilo definido" }}</p>
+        <p>{{ bot.content_style }}</p>
+        {% endif %}
     </article>
 </div>
 
+<!-- Action buttons -->
 <div class="grid">
-    <a href="/bots/{{ bot.slug }}/content" role="button" class="outline">Contenido generado</a>
-    <a href="/bots/{{ bot.slug }}/credentials" role="button" class="outline">Credenciales</a>
-    <a href="/bots/{{ bot.slug }}/logs" role="button" class="outline">Logs del pipeline</a>
-</div>
-
-{% if bot.custom_prompts %}
-<article>
-    <header><h3>Prompts personalizados</h3></header>
-    <ol>
-        {% for prompt in bot.custom_prompts %}
-        <li>{{ prompt }}</li>
-        {% endfor %}
-    </ol>
-</article>
-{% endif %}
-
-<div class="grid">
-    <a href="/bots/{{ bot.slug }}/edit" role="button">Editar configuracion</a>
+    <a href="/bots/{{ bot.slug }}/edit" role="button">Editar</a>
     <button
         hx-post="/bots/{{ bot.slug }}/toggle"
         hx-target="#action-result"
@@ -72,13 +63,36 @@
     >
         Ejecutar ahora
     </button>
+</div>
+<div id="action-result"></div>
+
+<!-- Navigation links -->
+<div class="grid">
+    <a href="/bots/{{ bot.slug }}/content" role="button" class="outline">Contenido generado</a>
+    <a href="/bots/{{ bot.slug }}/logs" role="button" class="outline">Logs del pipeline</a>
+</div>
+
+{% if bot.custom_prompts %}
+<details>
+    <summary>Prompts personalizados</summary>
+    <ol>
+        {% for prompt in bot.custom_prompts %}
+        <li>{{ prompt }}</li>
+        {% endfor %}
+    </ol>
+</details>
+{% endif %}
+
+<!-- Danger zone -->
+<details class="danger-zone">
+    <summary>Zona peligrosa</summary>
+    <p>Eliminar este bot y todo su contenido asociado. Esta accion no se puede deshacer.</p>
     <button
         hx-post="/bots/{{ bot.slug }}/delete"
         hx-confirm="Estas seguro de que quieres eliminar {{ bot.name }}? Esta accion no se puede deshacer."
         class="secondary outline"
     >
-        Eliminar
+        Eliminar bot
     </button>
-</div>
-<div id="action-result"></div>
+</details>
 {% endblock %}

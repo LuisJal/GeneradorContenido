@@ -454,6 +454,9 @@ async def content_reject(
 
 
 @router.post("/bots/{slug}/delete")
-async def bot_delete(slug: str, db: Session = Depends(get_db)):
+async def bot_delete(request: Request, slug: str, db: Session = Depends(get_db)):
     bot_manager.delete_bot(db, slug)
+    # HTMX requests need HX-Redirect header for full page navigation
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("", headers={"HX-Redirect": "/"})
     return RedirectResponse(url="/", status_code=303)

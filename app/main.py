@@ -55,7 +55,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Static files
+# Static files -- videos must be mounted first (more specific path)
+app.mount("/static/videos", StaticFiles(directory=str(settings.videos_dir)), name="videos")
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 
 # Routers

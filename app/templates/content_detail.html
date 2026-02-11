@@ -8,10 +8,54 @@
     <p>
         <a href="/bots/{{ bot.slug }}/content">&larr; Lista de contenido</a>
         &middot; Bot: {{ bot.name }}
-        &middot; Estado: <span class="status-{{ item.status }}">{{ item.status }}</span>
+        &middot; Estado: <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
     </p>
 </hgroup>
 
+{% if item.status == "pending_approval" %}
+<!-- ===== APPROVAL SECTION ===== -->
+<div class="approval-section">
+    <h2>Revision y aprobacion</h2>
+
+    {% if item.video_file_path %}
+    <video controls preload="metadata" style="max-width:100%; max-height:400px;">
+        <source src="/static/videos/{{ item.video_file_path | basename }}" type="video/mp4">
+        Tu navegador no soporta video HTML5.
+    </video>
+    {% endif %}
+
+    <form>
+        <label for="desc_ig"><strong>Instagram</strong></label>
+        <textarea id="desc_ig" name="description_instagram" rows="3">{{ item.description_instagram or '' }}</textarea>
+
+        <label for="desc_yt"><strong>YouTube</strong></label>
+        <textarea id="desc_yt" name="description_youtube" rows="3">{{ item.description_youtube or '' }}</textarea>
+
+        <label for="desc_tt"><strong>TikTok</strong></label>
+        <textarea id="desc_tt" name="description_tiktok" rows="3">{{ item.description_tiktok or '' }}</textarea>
+
+        <div class="grid">
+            <button type="button" class="approve-btn"
+                hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/approve"
+                hx-include="closest form"
+                hx-target="#approval-result"
+                hx-swap="innerHTML">
+                Aprobar y Publicar
+            </button>
+            <button type="button" class="reject-btn"
+                hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/reject"
+                hx-target="#approval-result"
+                hx-swap="innerHTML"
+                hx-confirm="Seguro que quieres rechazar este contenido?">
+                Rechazar
+            </button>
+        </div>
+    </form>
+    <div id="approval-result"></div>
+</div>
+
+{% else %}
+<!-- ===== READ-ONLY VIEW ===== -->
 <div class="grid">
     <article>
         <header><h3>Informacion</h3></header>
@@ -20,11 +64,10 @@
             <tr><td><strong>Estado</strong></td><td>{{ item.status }}</td></tr>
             <tr><td><strong>Aprobacion</strong></td><td>{{ item.approval_status or "-" }}</td></tr>
             <tr><td><strong>Proveedor video</strong></td><td>{{ item.video_provider or "-" }}</td></tr>
-            <tr><td><strong>Video task ID</strong></td><td>{{ item.video_task_id or "-" }}</td></tr>
             <tr><td><strong>Creado</strong></td><td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else "-" }}</td></tr>
             <tr><td><strong>Completado</strong></td><td>{{ item.completed_at.strftime('%Y-%m-%d %H:%M:%S') if item.completed_at else "-" }}</td></tr>
             {% if item.error_message %}
-            <tr><td><strong>Error</strong></td><td class="error-text">{{ item.error_message }}</td></tr>
+            <tr><td><strong>Error</strong></td><td class="log-error">{{ item.error_message }}</td></tr>
             {% endif %}
         </table>
     </article>
@@ -39,27 +82,17 @@
     </article>
 </div>
 
-{% if item.script %}
-<article>
-    <header><h3>Guion</h3></header>
-    <pre>{{ item.script }}</pre>
-</article>
-{% endif %}
-
-{% if item.video_prompt %}
-<article>
-    <header><h3>Prompt de video</h3></header>
-    <p>{{ item.video_prompt }}</p>
-</article>
-{% endif %}
-
 {% if item.video_file_path %}
 <article>
     <header><h3>Video</h3></header>
-    <p>Archivo: <code>{{ item.video_file_path }}</code></p>
+    <video controls preload="metadata" style="max-width:100%; max-height:400px;">
+        <source src="/static/videos/{{ item.video_file_path | basename }}" type="video/mp4">
+        Tu navegador no soporta video HTML5.
+    </video>
 </article>
 {% endif %}
 
+{% if item.description_instagram or item.description_youtube or item.description_tiktok %}
 <div class="grid">
     {% if item.description_instagram %}
     <article>
@@ -82,4 +115,22 @@
     </article>
     {% endif %}
 </div>
+{% endif %}
+
+{% endif %}
+
+<!-- Script and prompt in collapsible details -->
+{% if item.script %}
+<details>
+    <summary>Guion generado</summary>
+    <pre>{{ item.script }}</pre>
+</details>
+{% endif %}
+
+{% if item.video_prompt %}
+<details>
+    <summary>Prompt de video</summary>
+    <p>{{ item.video_prompt }}</p>
+</details>
+{% endif %}
 {% endblock %}

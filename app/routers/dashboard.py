@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.database import get_db
-from app.models.content import ContentItem
+from app.models.content import ContentItem, ContentStatus
 from app.models.credential import SocialCredential
 from app.models.log_entry import PipelineLog
 from app.schemas.bot import BotCreate, BotUpdate, PostingSchedule
@@ -22,6 +22,10 @@ from app.utils.encryption import FieldEncryptor
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+
+# Register custom Jinja2 filter for extracting basename from paths
+import os
+templates.env.filters["basename"] = lambda path: os.path.basename(path) if path else ""
 
 
 def _available_templates():
@@ -119,7 +123,6 @@ async def bot_detail(request: Request, slug: str, db: Session = Depends(get_db))
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
-    from app.models.content import ContentStatus
     pending_count = db.query(ContentItem).filter(
         ContentItem.bot_id == bot.id,
         ContentItem.status == ContentStatus.PENDING_APPROVAL.value,
@@ -229,20 +232,21 @@ async def bot_run_now(request: Request, slug: str, db: Session = Depends(get_db)
 
 
 @router.get("/bots/{slug}/content", response_class=HTMLResponse)
-async def bot_content_list(request: Request, slug: str, db: Session = Depends(get_db)):
+async def bot_content_list(
+    request: Request, slug: str, db: Session = Depends(get_db),
+    filter: Optional[str] = None,
+):
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
-    items = (
-        db.query(ContentItem)
-        .filter(ContentItem.bot_id == bot.id)
-        .order_by(desc(ContentItem.created_at))
-        .limit(50)
-        .all()
-    )
+    query = db.query(ContentItem).filter(ContentItem.bot_id == bot.id)
+    if filter:
+        query = query.filter(ContentItem.status == filter)
+    items = query.order_by(desc(ContentItem.created_at)).limit(50).all()
     return templates.TemplateResponse(request, "content_list.html", {
         "bot": bot,
         "items": items,
+        "current_filter": filter,
     })
 
 
@@ -316,6 +320,69 @@ async def bot_add_credential(
     db.commit()
 
     return RedirectResponse(url=f"/bots/{slug}/edit", status_code=303)
+
+
+@router.post("/bots/{slug}/content/{content_id}/approve")
+async def content_approve(
+    request: Request, slug: str, content_id: int, db: Session = Depends(get_db),
+):
+    """Approve content and trigger publishing."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    item = db.query(ContentItem).filter(
+        ContentItem.id == content_id, ContentItem.bot_id == bot.id
+    ).first()
+    if not item:
+        return HTMLResponse("Content not found", status_code=404)
+
+    # Update descriptions from form
+    form = await request.form()
+    item.description_instagram = form.get("description_instagram", item.description_instagram)
+    item.description_youtube = form.get("description_youtube", item.description_youtube)
+    item.description_tiktok = form.get("description_tiktok", item.description_tiktok)
+
+    # Mark approved
+    item.approval_status = "approved"
+    item.status = ContentStatus.APPROVED.value
+    db.commit()
+
+    # Trigger publishing asynchronously
+    try:
+        from app.services.pipeline_orchestrator import resume_after_approval
+        await resume_after_approval(item, bot, db)
+    except Exception as exc:
+        return HTMLResponse(
+            f'<div class="flash-error">Error al publicar: {exc}</div>',
+        )
+
+    db.refresh(item)
+    return HTMLResponse(
+        f'<div class="flash-success">Contenido aprobado y publicado. Estado: {item.status}</div>',
+    )
+
+
+@router.post("/bots/{slug}/content/{content_id}/reject")
+async def content_reject(
+    slug: str, content_id: int, db: Session = Depends(get_db),
+):
+    """Reject content."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    item = db.query(ContentItem).filter(
+        ContentItem.id == content_id, ContentItem.bot_id == bot.id
+    ).first()
+    if not item:
+        return HTMLResponse("Content not found", status_code=404)
+
+    item.approval_status = "rejected"
+    item.status = ContentStatus.REJECTED.value
+    db.commit()
+
+    return HTMLResponse(
+        '<div class="flash-error">Contenido rechazado.</div>',
+    )
 
 
 @router.post("/bots/{slug}/delete")

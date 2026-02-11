@@ -5,7 +5,7 @@ The pipeline runs in three resumable phases:
 1. ``run_pipeline(bot_id)`` -- topic selection, script generation, video
    submission.  Pauses after submitting the video (async generation).
 2. ``resume_after_video(content_id)`` -- checks video status, downloads it,
-   generates descriptions, sends to Telegram for approval.
+   generates descriptions, marks as pending dashboard approval.
 3. ``resume_after_approval(content_id)`` -- publishes to all connected social
    platforms (Instagram Reels, YouTube Shorts, TikTok).
 """
@@ -20,7 +20,9 @@ from sqlalchemy.orm import Session
 from app.models.bot import Bot
 from app.models.content import ContentItem, ContentStatus
 from app.models.log_entry import PipelineLog
-from app.services import script_generator, video_generator, telegram_approver, publisher
+# --- TELEGRAM COMMENTED OUT --- (approval now via dashboard)
+# from app.services import script_generator, video_generator, telegram_approver, publisher
+from app.services import script_generator, video_generator, publisher
 from app.services.trend_scraper import get_trending_topics, select_unused_topic
 from app.utils.logging_config import get_logger
 
@@ -169,16 +171,17 @@ async def run_pipeline(bot: Bot, db: Session) -> ContentItem:
         error_msg = f"{type(exc).__name__}: {exc}"
         _set_error(db, content, error_msg)
         _log(db, bot.id, content_id, "pipeline_error", error_msg, level="ERROR")
-        # Notify via Telegram if possible
-        try:
-            await telegram_approver.notify_error(bot, content, error_msg)
-        except Exception:
-            pass
+        # --- TELEGRAM COMMENTED OUT ---
+        # try:
+        #     await telegram_approver.notify_error(bot, content, error_msg)
+        # except Exception:
+        #     pass
+        logger.error("Pipeline error for bot %s: %s", bot.name, error_msg)
         raise
 
 
 # ------------------------------------------------------------------
-# Phase 2: Video ready -> Descriptions -> Telegram approval
+# Phase 2: Video ready -> Descriptions -> Dashboard approval
 # ------------------------------------------------------------------
 
 
@@ -203,7 +206,8 @@ async def resume_after_video(content: ContentItem, bot: Bot, db: Session) -> Con
             error_msg = result.get("error", "Video generation failed")
             _set_error(db, content, error_msg)
             _log(db, bot.id, content_id, "video_failed", error_msg, level="ERROR")
-            await telegram_approver.notify_error(bot, content, error_msg)
+            # --- TELEGRAM COMMENTED OUT ---
+            # await telegram_approver.notify_error(bot, content, error_msg)
             return content
 
         if result["status"] != "completed":
@@ -244,13 +248,17 @@ async def resume_after_video(content: ContentItem, bot: Bot, db: Session) -> Con
         db.commit()
         _log(db, bot.id, content_id, "descriptions_generated", "Descriptions ready")
 
-        # 3. Send for approval
+        # 3. Mark as pending approval (approval now via dashboard)
         _set_status(db, content, ContentStatus.PENDING_APPROVAL)
         content.approval_status = "pending"
-        message_id = await telegram_approver.send_content_for_approval(bot, content)
-        content.telegram_message_id = message_id
         db.commit()
-        _log(db, bot.id, content_id, "sent_for_approval", f"Telegram message: {message_id}")
+        _log(db, bot.id, content_id, "pending_approval",
+             "Content ready for dashboard approval")
+        # --- TELEGRAM COMMENTED OUT ---
+        # message_id = await telegram_approver.send_content_for_approval(bot, content)
+        # content.telegram_message_id = message_id
+        # db.commit()
+        # _log(db, bot.id, content_id, "sent_for_approval", f"Telegram message: {message_id}")
 
         return content
 
@@ -258,10 +266,11 @@ async def resume_after_video(content: ContentItem, bot: Bot, db: Session) -> Con
         error_msg = f"{type(exc).__name__}: {exc}"
         _set_error(db, content, error_msg)
         _log(db, bot.id, content_id, "phase2_error", error_msg, level="ERROR")
-        try:
-            await telegram_approver.notify_error(bot, content, error_msg)
-        except Exception:
-            pass
+        # --- TELEGRAM COMMENTED OUT ---
+        # try:
+        #     await telegram_approver.notify_error(bot, content, error_msg)
+        # except Exception:
+        #     pass
         raise
 
 
@@ -313,13 +322,14 @@ async def resume_after_approval(content: ContentItem, bot: Bot, db: Session) -> 
         _log(db, bot.id, content_id, "publish_failed",
              "Failed to publish to any platform", level="ERROR")
 
-    # Notify via Telegram
-    try:
-        from datetime import datetime
-        content.completed_at = datetime.utcnow()
-        db.commit()
-        await telegram_approver.notify_published(bot, content)
-    except Exception:
-        logger.exception("Failed to send publish notification")
+    # Mark completion
+    from datetime import datetime
+    content.completed_at = datetime.utcnow()
+    db.commit()
+    # --- TELEGRAM COMMENTED OUT ---
+    # try:
+    #     await telegram_approver.notify_published(bot, content)
+    # except Exception:
+    #     logger.exception("Failed to send publish notification")
 
     return content

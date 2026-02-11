@@ -8,6 +8,18 @@
     <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
 </hgroup>
 
+<!-- Filter tabs -->
+<nav class="filter-nav">
+    <a href="/bots/{{ bot.slug }}/content"
+       class="{{ 'active' if not current_filter }}">Todos</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=pending_approval"
+       class="{{ 'active' if current_filter == 'pending_approval' }}">Pendientes</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=published"
+       class="{{ 'active' if current_filter == 'published' }}">Publicados</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=failed"
+       class="{{ 'active' if current_filter == 'failed' }}">Fallidos</a>
+</nav>
+
 {% if items %}
 <table>
     <thead>
@@ -26,7 +38,7 @@
             <td>{{ item.id }}</td>
             <td>{{ (item.trend_topic or item.custom_prompt or "-")[:50] }}</td>
             <td>
-                <span class="status-{{ item.status }}">{{ item.status }}</span>
+                <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
             </td>
             <td>{{ item.video_provider or "-" }}</td>
             <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else "-" }}</td>
@@ -39,7 +51,7 @@
 </table>
 {% else %}
 <article>
-    <p>No hay contenido generado todavia para este bot.</p>
+    <p>No hay contenido{% if current_filter %} con estado "{{ current_filter }}"{% endif %} generado todavia para este bot.</p>
 </article>
 {% endif %}
 {% endblock %}

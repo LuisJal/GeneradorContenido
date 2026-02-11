@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Contenido - {{ bot.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>Contenido de {{ bot.name }}</h1>
+    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
+</hgroup>
+
+{% if items %}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Tema</th>
+            <th>Estado</th>
+            <th>Proveedor</th>
+            <th>Creado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.id }}</td>
+            <td>{{ (item.trend_topic or item.custom_prompt or "-")[:50] }}</td>
+            <td>
+                <span class="status-{{ item.status }}">{{ item.status }}</span>
+            </td>
+            <td>{{ item.video_provider or "-" }}</td>
+            <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else "-" }}</td>
+            <td>
+                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}">Ver detalle</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<article>
+    <p>No hay contenido generado todavia para este bot.</p>
+</article>
+{% endif %}
+{% endblock %}

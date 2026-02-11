@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Contenido #{{ item.id }} - {{ bot.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>Contenido #{{ item.id }}</h1>
+    <p>
+        <a href="/bots/{{ bot.slug }}/content">&larr; Lista de contenido</a>
+        &middot; Bot: {{ bot.name }}
+        &middot; Estado: <span class="status-{{ item.status }}">{{ item.status }}</span>
+    </p>
+</hgroup>
+
+<div class="grid">
+    <article>
+        <header><h3>Informacion</h3></header>
+        <table>
+            <tr><td><strong>Tema</strong></td><td>{{ item.trend_topic or item.custom_prompt or "-" }}</td></tr>
+            <tr><td><strong>Estado</strong></td><td>{{ item.status }}</td></tr>
+            <tr><td><strong>Aprobacion</strong></td><td>{{ item.approval_status or "-" }}</td></tr>
+            <tr><td><strong>Proveedor video</strong></td><td>{{ item.video_provider or "-" }}</td></tr>
+            <tr><td><strong>Video task ID</strong></td><td>{{ item.video_task_id or "-" }}</td></tr>
+            <tr><td><strong>Creado</strong></td><td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else "-" }}</td></tr>
+            <tr><td><strong>Completado</strong></td><td>{{ item.completed_at.strftime('%Y-%m-%d %H:%M:%S') if item.completed_at else "-" }}</td></tr>
+            {% if item.error_message %}
+            <tr><td><strong>Error</strong></td><td class="error-text">{{ item.error_message }}</td></tr>
+            {% endif %}
+        </table>
+    </article>
+
+    <article>
+        <header><h3>Publicacion</h3></header>
+        <table>
+            <tr><td><strong>Instagram</strong></td><td>{{ item.publish_instagram_id or "No publicado" }}</td></tr>
+            <tr><td><strong>YouTube</strong></td><td>{{ item.publish_youtube_id or "No publicado" }}</td></tr>
+            <tr><td><strong>TikTok</strong></td><td>{{ item.publish_tiktok_id or "No publicado" }}</td></tr>
+        </table>
+    </article>
+</div>
+
+{% if item.script %}
+<article>
+    <header><h3>Guion</h3></header>
+    <pre>{{ item.script }}</pre>
+</article>
+{% endif %}
+
+{% if item.video_prompt %}
+<article>
+    <header><h3>Prompt de video</h3></header>
+    <p>{{ item.video_prompt }}</p>
+</article>
+{% endif %}
+
+{% if item.video_file_path %}
+<article>
+    <header><h3>Video</h3></header>
+    <p>Archivo: <code>{{ item.video_file_path }}</code></p>
+</article>
+{% endif %}
+
+<div class="grid">
+    {% if item.description_instagram %}
+    <article>
+        <header><h4>Instagram</h4></header>
+        <p>{{ item.description_instagram }}</p>
+    </article>
+    {% endif %}
+
+    {% if item.description_youtube %}
+    <article>
+        <header><h4>YouTube</h4></header>
+        <p>{{ item.description_youtube }}</p>
+    </article>
+    {% endif %}
+
+    {% if item.description_tiktok %}
+    <article>
+        <header><h4>TikTok</h4></header>
+        <p>{{ item.description_tiktok }}</p>
+    </article>
+    {% endif %}
+</div>
+{% endblock %}

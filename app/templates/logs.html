@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - {{ bot.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>Logs de {{ bot.name }}</h1>
+    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
+</hgroup>
+
+{% if logs %}
+<table>
+    <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Nivel</th>
+            <th>Etapa</th>
+            <th>Contenido</th>
+            <th>Mensaje</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr class="log-{{ log.level|lower }}">
+            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else "-" }}</td>
+            <td><span class="log-level-{{ log.level|lower }}">{{ log.level }}</span></td>
+            <td>{{ log.stage }}</td>
+            <td>{{ log.content_id or "-" }}</td>
+            <td>{{ log.message[:100] }}{% if log.message|length > 100 %}...{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<article>
+    <p>No hay logs todavia para este bot.</p>
+</article>
+{% endif %}
+{% endblock %}

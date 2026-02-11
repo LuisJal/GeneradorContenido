@@ -38,6 +38,12 @@
     </article>
 </div>
 
+<div class="grid">
+    <a href="/bots/{{ bot.slug }}/content" role="button" class="outline">Contenido generado</a>
+    <a href="/bots/{{ bot.slug }}/credentials" role="button" class="outline">Credenciales</a>
+    <a href="/bots/{{ bot.slug }}/logs" role="button" class="outline">Logs del pipeline</a>
+</div>
+
 {% if bot.custom_prompts %}
 <article>
     <header><h3>Prompts personalizados</h3></header>
@@ -53,10 +59,18 @@
     <a href="/bots/{{ bot.slug }}/edit" role="button">Editar configuracion</a>
     <button
         hx-post="/bots/{{ bot.slug }}/toggle"
-        hx-target="#toggle-result"
+        hx-target="#action-result"
         hx-swap="innerHTML"
     >
         {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
+    </button>
+    <button
+        hx-post="/bots/{{ bot.slug }}/run"
+        hx-target="#action-result"
+        hx-swap="innerHTML"
+        class="contrast"
+    >
+        Ejecutar ahora
     </button>
     <button
         hx-post="/bots/{{ bot.slug }}/delete"
@@ -66,5 +80,5 @@
         Eliminar
     </button>
 </div>
-<div id="toggle-result"></div>
+<div id="action-result"></div>
 {% endblock %}

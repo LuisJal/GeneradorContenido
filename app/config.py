@@ -58,3 +58,6 @@ class Settings(BaseSettings):
         path = self.storage_dir / "thumbnails"
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+
+settings = Settings()

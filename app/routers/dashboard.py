@@ -9,9 +9,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from sqlalchemy import desc
+
 from app.database import get_db
+from app.models.content import ContentItem
+from app.models.credential import SocialCredential
+from app.models.log_entry import PipelineLog
 from app.schemas.bot import BotCreate, BotUpdate, PostingSchedule
 from app.services import bot_manager
+from app.utils.encryption import FieldEncryptor
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -194,6 +200,104 @@ async def bot_run_now(request: Request, slug: str, db: Session = Depends(get_db)
             "bot": bot,
             "error": str(e),
         })
+
+
+@router.get("/bots/{slug}/content", response_class=HTMLResponse)
+async def bot_content_list(request: Request, slug: str, db: Session = Depends(get_db)):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    items = (
+        db.query(ContentItem)
+        .filter(ContentItem.bot_id == bot.id)
+        .order_by(desc(ContentItem.created_at))
+        .limit(50)
+        .all()
+    )
+    return templates.TemplateResponse(request, "content_list.html", {
+        "bot": bot,
+        "items": items,
+    })
+
+
+@router.get("/bots/{slug}/content/{content_id}", response_class=HTMLResponse)
+async def bot_content_detail(
+    request: Request, slug: str, content_id: int, db: Session = Depends(get_db)
+):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    item = db.query(ContentItem).filter(
+        ContentItem.id == content_id, ContentItem.bot_id == bot.id
+    ).first()
+    if not item:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    return templates.TemplateResponse(request, "content_detail.html", {
+        "bot": bot,
+        "item": item,
+    })
+
+
+@router.get("/bots/{slug}/logs", response_class=HTMLResponse)
+async def bot_logs(request: Request, slug: str, db: Session = Depends(get_db)):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    logs = (
+        db.query(PipelineLog)
+        .filter(PipelineLog.bot_id == bot.id)
+        .order_by(desc(PipelineLog.created_at))
+        .limit(100)
+        .all()
+    )
+    return templates.TemplateResponse(request, "logs.html", {
+        "bot": bot,
+        "logs": logs,
+    })
+
+
+@router.get("/bots/{slug}/credentials", response_class=HTMLResponse)
+async def bot_credentials(request: Request, slug: str, db: Session = Depends(get_db)):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    credentials = db.query(SocialCredential).filter(
+        SocialCredential.bot_id == bot.id
+    ).all()
+    return templates.TemplateResponse(request, "credentials.html", {
+        "bot": bot,
+        "credentials": credentials,
+    })
+
+
+@router.post("/bots/{slug}/credentials")
+async def bot_add_credential(
+    request: Request,
+    slug: str,
+    db: Session = Depends(get_db),
+    platform: str = Form(...),
+    access_token: str = Form(...),
+    refresh_token: str = Form(""),
+    platform_user_id: str = Form(""),
+):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+
+    from app.config import settings
+    encryptor = FieldEncryptor(settings.encryption_key)
+
+    cred = SocialCredential(
+        bot_id=bot.id,
+        platform=platform,
+        access_token_encrypted=encryptor.encrypt(access_token),
+        refresh_token_encrypted=encryptor.encrypt(refresh_token) if refresh_token else None,
+        platform_user_id=platform_user_id or None,
+    )
+    db.add(cred)
+    db.commit()
+
+    return RedirectResponse(url=f"/bots/{slug}/credentials", status_code=303)
 
 
 @router.post("/bots/{slug}/delete")

@@ -38,6 +38,12 @@
     </article>
 </div>
 
+<div class="grid">
+    <a href="/bots/{{ bot.slug }}/content" role="button" class="outline">Contenido generado</a>
+    <a href="/bots/{{ bot.slug }}/credentials" role="button" class="outline">Credenciales</a>
+    <a href="/bots/{{ bot.slug }}/logs" role="button" class="outline">Logs del pipeline</a>
+</div>
+
 {% if bot.custom_prompts %}
 <article>
     <header><h3>Prompts personalizados</h3></header>

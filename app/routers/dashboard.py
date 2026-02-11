@@ -12,15 +12,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.database import get_db
-from app.models.content import ContentItem
+from app.models.content import ContentItem, ContentStatus
 from app.models.credential import SocialCredential
 from app.models.log_entry import PipelineLog
 from app.schemas.bot import BotCreate, BotUpdate, PostingSchedule
 from app.services import bot_manager
+from app.services.settings_manager import get_all_settings, save_setting, SETTING_DEFINITIONS
 from app.utils.encryption import FieldEncryptor
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+
+# Register custom Jinja2 filter for extracting basename from paths
+import os
+templates.env.filters["basename"] = lambda path: os.path.basename(path) if path else ""
 
 
 def _available_templates():
@@ -34,6 +39,29 @@ async def dashboard_home(request: Request, db: Session = Depends(get_db)):
     bots = bot_manager.list_bots(db)
     return templates.TemplateResponse(request, "dashboard.html", {
         "bots": bots,
+    })
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, db: Session = Depends(get_db)):
+    current = get_all_settings(db)
+    return templates.TemplateResponse(request, "settings.html", {
+        "current": current,
+        "message": None,
+    })
+
+
+@router.post("/settings")
+async def settings_save(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    for key in SETTING_DEFINITIONS:
+        value = form.get(key, "")
+        if value:
+            save_setting(db, key, value)
+    current = get_all_settings(db)
+    return templates.TemplateResponse(request, "settings.html", {
+        "current": current,
+        "message": "Configuracion guardada correctamente.",
     })
 
 
@@ -60,8 +88,6 @@ async def bot_create_submit(
     use_trends: Optional[str] = Form(None),
     video_provider: str = Form("veo3"),
     video_duration_seconds: int = Form(15),
-    gemini_api_key: str = Form(""),
-    telegram_chat_id: str = Form(""),
     contact_email: str = Form(""),
     template: str = Form(""),
 ):
@@ -80,8 +106,6 @@ async def bot_create_submit(
             use_trends=use_trends is not None,
             video_provider=video_provider,
             video_duration_seconds=video_duration_seconds,
-            gemini_api_key=gemini_api_key or None,
-            telegram_chat_id=telegram_chat_id or None,
             contact_email=contact_email or None,
             template=template or None,
         )
@@ -99,8 +123,13 @@ async def bot_detail(request: Request, slug: str, db: Session = Depends(get_db))
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    pending_count = db.query(ContentItem).filter(
+        ContentItem.bot_id == bot.id,
+        ContentItem.status == ContentStatus.PENDING_APPROVAL.value,
+    ).count()
     return templates.TemplateResponse(request, "bot_detail.html", {
         "bot": bot,
+        "pending_count": pending_count,
     })
 
 
@@ -109,8 +138,12 @@ async def bot_edit_form(request: Request, slug: str, db: Session = Depends(get_d
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
+    credentials = db.query(SocialCredential).filter(
+        SocialCredential.bot_id == bot.id
+    ).all()
     return templates.TemplateResponse(request, "bot_edit.html", {
         "bot": bot,
+        "credentials": credentials,
         "errors": {},
     })
 
@@ -129,8 +162,6 @@ async def bot_edit_submit(
     use_trends: Optional[str] = Form(None),
     video_provider: str = Form("veo3"),
     video_duration_seconds: int = Form(15),
-    gemini_api_key: str = Form(""),
-    telegram_chat_id: str = Form(""),
     contact_email: str = Form(""),
     script_system_prompt: str = Form(""),
 ):
@@ -147,8 +178,6 @@ async def bot_edit_submit(
             use_trends=use_trends is not None,
             video_provider=video_provider,
             video_duration_seconds=video_duration_seconds,
-            gemini_api_key=gemini_api_key or None,
-            telegram_chat_id=telegram_chat_id or None,
             contact_email=contact_email or None,
             script_system_prompt=script_system_prompt or None,
         )
@@ -156,8 +185,12 @@ async def bot_edit_submit(
         return RedirectResponse(url=f"/bots/{slug}", status_code=303)
     except (ValueError, Exception) as e:
         bot = bot_manager.get_bot_by_slug(db, slug)
+        credentials = db.query(SocialCredential).filter(
+            SocialCredential.bot_id == bot.id
+        ).all() if bot else []
         return templates.TemplateResponse(request, "bot_edit.html", {
             "bot": bot,
+            "credentials": credentials,
             "errors": {"general": str(e)},
         }, status_code=400)
 
@@ -203,20 +236,21 @@ async def bot_run_now(request: Request, slug: str, db: Session = Depends(get_db)
 
 
 @router.get("/bots/{slug}/content", response_class=HTMLResponse)
-async def bot_content_list(request: Request, slug: str, db: Session = Depends(get_db)):
+async def bot_content_list(
+    request: Request, slug: str, db: Session = Depends(get_db),
+    filter: Optional[str] = None,
+):
     bot = bot_manager.get_bot_by_slug(db, slug)
     if not bot:
         return templates.TemplateResponse(request, "404.html", {}, status_code=404)
-    items = (
-        db.query(ContentItem)
-        .filter(ContentItem.bot_id == bot.id)
-        .order_by(desc(ContentItem.created_at))
-        .limit(50)
-        .all()
-    )
+    query = db.query(ContentItem).filter(ContentItem.bot_id == bot.id)
+    if filter:
+        query = query.filter(ContentItem.status == filter)
+    items = query.order_by(desc(ContentItem.created_at)).limit(50).all()
     return templates.TemplateResponse(request, "content_list.html", {
         "bot": bot,
         "items": items,
+        "current_filter": filter,
     })
 
 
@@ -256,18 +290,10 @@ async def bot_logs(request: Request, slug: str, db: Session = Depends(get_db)):
     })
 
 
-@router.get("/bots/{slug}/credentials", response_class=HTMLResponse)
-async def bot_credentials(request: Request, slug: str, db: Session = Depends(get_db)):
-    bot = bot_manager.get_bot_by_slug(db, slug)
-    if not bot:
-        return templates.TemplateResponse(request, "404.html", {}, status_code=404)
-    credentials = db.query(SocialCredential).filter(
-        SocialCredential.bot_id == bot.id
-    ).all()
-    return templates.TemplateResponse(request, "credentials.html", {
-        "bot": bot,
-        "credentials": credentials,
-    })
+@router.get("/bots/{slug}/credentials")
+async def bot_credentials(slug: str):
+    """Redirect to bot edit page where credentials are now managed."""
+    return RedirectResponse(url=f"/bots/{slug}/edit", status_code=302)
 
 
 @router.post("/bots/{slug}/credentials")
@@ -297,7 +323,134 @@ async def bot_add_credential(
     db.add(cred)
     db.commit()
 
-    return RedirectResponse(url=f"/bots/{slug}/credentials", status_code=303)
+    return RedirectResponse(url=f"/bots/{slug}/edit", status_code=303)
+
+
+@router.post("/bots/{slug}/credentials/{cred_id}/toggle")
+async def bot_toggle_credential(
+    request: Request, slug: str, cred_id: int, db: Session = Depends(get_db),
+):
+    """Toggle a credential's active state via HTMX."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    cred = db.query(SocialCredential).filter(
+        SocialCredential.id == cred_id, SocialCredential.bot_id == bot.id
+    ).first()
+    if not cred:
+        return HTMLResponse("Credential not found", status_code=404)
+
+    cred.is_active = not cred.is_active
+    db.commit()
+
+    # Return updated table row for HTMX swap
+    status_html = (
+        '<span class="badge-active"><span class="pulse-dot"></span> Activa</span>'
+        if cred.is_active
+        else '<span class="badge-inactive">Inactiva</span>'
+    )
+    toggle_label = "Desactivar" if cred.is_active else "Activar"
+    return HTMLResponse(f"""<tr>
+        <td>{cred.platform.capitalize()}</td>
+        <td>{cred.platform_user_id or "-"}</td>
+        <td>{status_html}</td>
+        <td>
+            <button hx-post="/bots/{slug}/credentials/{cred.id}/toggle"
+                    hx-swap="outerHTML" hx-target="closest tr"
+                    class="btn-action" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                {toggle_label}
+            </button>
+            <button hx-post="/bots/{slug}/credentials/{cred.id}/delete"
+                    hx-swap="outerHTML" hx-target="closest tr"
+                    hx-confirm="Eliminar credencial de {cred.platform}?"
+                    class="btn-action danger" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                Eliminar
+            </button>
+        </td>
+    </tr>""")
+
+
+@router.post("/bots/{slug}/credentials/{cred_id}/delete")
+async def bot_delete_credential(
+    slug: str, cred_id: int, db: Session = Depends(get_db),
+):
+    """Delete a credential via HTMX."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    cred = db.query(SocialCredential).filter(
+        SocialCredential.id == cred_id, SocialCredential.bot_id == bot.id
+    ).first()
+    if not cred:
+        return HTMLResponse("Credential not found", status_code=404)
+
+    db.delete(cred)
+    db.commit()
+    # Return empty string to remove the row
+    return HTMLResponse("")
+
+
+@router.post("/bots/{slug}/content/{content_id}/approve")
+async def content_approve(
+    request: Request, slug: str, content_id: int, db: Session = Depends(get_db),
+):
+    """Approve content and trigger publishing."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    item = db.query(ContentItem).filter(
+        ContentItem.id == content_id, ContentItem.bot_id == bot.id
+    ).first()
+    if not item:
+        return HTMLResponse("Content not found", status_code=404)
+
+    # Update descriptions from form
+    form = await request.form()
+    item.description_instagram = form.get("description_instagram", item.description_instagram)
+    item.description_youtube = form.get("description_youtube", item.description_youtube)
+    item.description_tiktok = form.get("description_tiktok", item.description_tiktok)
+
+    # Mark approved
+    item.approval_status = "approved"
+    item.status = ContentStatus.APPROVED.value
+    db.commit()
+
+    # Trigger publishing asynchronously
+    try:
+        from app.services.pipeline_orchestrator import resume_after_approval
+        await resume_after_approval(item, bot, db)
+    except Exception as exc:
+        return HTMLResponse(
+            f'<div class="flash-error">Error al publicar: {exc}</div>',
+        )
+
+    db.refresh(item)
+    return HTMLResponse(
+        f'<div class="flash-success">Contenido aprobado y publicado. Estado: {item.status}</div>',
+    )
+
+
+@router.post("/bots/{slug}/content/{content_id}/reject")
+async def content_reject(
+    slug: str, content_id: int, db: Session = Depends(get_db),
+):
+    """Reject content."""
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    item = db.query(ContentItem).filter(
+        ContentItem.id == content_id, ContentItem.bot_id == bot.id
+    ).first()
+    if not item:
+        return HTMLResponse("Content not found", status_code=404)
+
+    item.approval_status = "rejected"
+    item.status = ContentStatus.REJECTED.value
+    db.commit()
+
+    return HTMLResponse(
+        '<div class="flash-error">Contenido rechazado.</div>',
+    )
 
 
 @router.post("/bots/{slug}/delete")

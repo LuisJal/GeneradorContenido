@@ -132,8 +132,7 @@ def test_run_pipeline_success(db, bot):
     db.commit()
 
     with patch("app.services.pipeline_orchestrator.script_generator") as sg, \
-         patch("app.services.pipeline_orchestrator.video_generator") as vg, \
-         patch("app.services.pipeline_orchestrator.telegram_approver"):
+         patch("app.services.pipeline_orchestrator.video_generator") as vg:
 
         sg.generate_content_script = AsyncMock(return_value=fake_script)
         sg.generate_video_prompt = AsyncMock(return_value="cinematic prompt")
@@ -157,13 +156,11 @@ def test_run_pipeline_success(db, bot):
 def test_run_pipeline_script_error(db, bot):
     """Script generation failure should set content to FAILED."""
     with patch("app.services.pipeline_orchestrator.script_generator") as sg, \
-         patch("app.services.pipeline_orchestrator.video_generator"), \
-         patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+         patch("app.services.pipeline_orchestrator.video_generator"):
 
         sg.generate_content_script = AsyncMock(
             side_effect=Exception("Gemini API down")
         )
-        ta.notify_error = AsyncMock()
 
         with pytest.raises(Exception, match="Gemini API down"):
             asyncio.get_event_loop().run_until_complete(
@@ -205,16 +202,13 @@ def test_resume_after_video_completed(db, bot):
     }
 
     with patch("app.services.pipeline_orchestrator.video_generator") as vg, \
-         patch("app.services.pipeline_orchestrator.script_generator") as sg, \
-         patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+         patch("app.services.pipeline_orchestrator.script_generator") as sg:
 
         vg.check_video_status = AsyncMock(
             return_value={"status": "completed", "video_url": "https://cdn/video.mp4"}
         )
         vg.download_video = AsyncMock(return_value="/tmp/video.mp4")
         sg.generate_content_descriptions = AsyncMock(return_value=descriptions)
-        ta.send_content_for_approval = AsyncMock(return_value=999)
-        ta.notify_error = AsyncMock()
 
         result = asyncio.get_event_loop().run_until_complete(
             resume_after_video(item, bot, db)
@@ -225,7 +219,7 @@ def test_resume_after_video_completed(db, bot):
     assert result.description_instagram == "IG caption"
     assert "YT title" in result.description_youtube
     assert result.description_tiktok == "TT caption"
-    assert result.telegram_message_id == 999
+    assert result.approval_status == "pending"
 
 
 def test_resume_after_video_failed(db, bot):
@@ -242,13 +236,11 @@ def test_resume_after_video_failed(db, bot):
     db.commit()
 
     with patch("app.services.pipeline_orchestrator.video_generator") as vg, \
-         patch("app.services.pipeline_orchestrator.script_generator"), \
-         patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+         patch("app.services.pipeline_orchestrator.script_generator"):
 
         vg.check_video_status = AsyncMock(
             return_value={"status": "failed", "error": "GPU error"}
         )
-        ta.notify_error = AsyncMock()
 
         result = asyncio.get_event_loop().run_until_complete(
             resume_after_video(item, bot, db)
@@ -269,8 +261,7 @@ def test_resume_after_video_still_processing(db, bot):
     db.commit()
 
     with patch("app.services.pipeline_orchestrator.video_generator") as vg, \
-         patch("app.services.pipeline_orchestrator.script_generator"), \
-         patch("app.services.pipeline_orchestrator.telegram_approver"):
+         patch("app.services.pipeline_orchestrator.script_generator"):
 
         vg.check_video_status = AsyncMock(
             return_value={"status": "processing"}
@@ -301,10 +292,8 @@ def test_resume_after_approval_no_credentials(db, bot):
     bot.telegram_chat_id = "12345"
     db.commit()
 
-    with patch("app.services.pipeline_orchestrator.publisher") as pub, \
-         patch("app.services.pipeline_orchestrator.telegram_approver") as ta:
+    with patch("app.services.pipeline_orchestrator.publisher") as pub:
         pub.publish_to_all = AsyncMock(return_value={})
-        ta.notify_published = AsyncMock()
 
         result = asyncio.get_event_loop().run_until_complete(
             resume_after_approval(item, bot, db)
@@ -324,8 +313,7 @@ def test_resume_after_approval_not_approved(db, bot):
     db.add(item)
     db.commit()
 
-    with patch("app.services.pipeline_orchestrator.publisher"), \
-         patch("app.services.pipeline_orchestrator.telegram_approver"):
+    with patch("app.services.pipeline_orchestrator.publisher"):
         result = asyncio.get_event_loop().run_until_complete(
             resume_after_approval(item, bot, db)
         )

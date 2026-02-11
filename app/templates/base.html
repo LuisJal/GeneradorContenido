@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,11 @@
     <!-- Pico CSS (classless, minimal) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 
@@ -15,13 +20,16 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav class="container">
+    <nav class="container-fluid nav-premium">
         <ul>
-            <li><strong><a href="/">GeneradorContenido</a></strong></li>
+            <li><a href="/" class="brand-logo">
+                <span class="brand-icon">&#9670;</span> GeneradorContenido
+            </a></li>
         </ul>
         <ul>
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/bots/new">+ Nuevo Bot</a></li>
+            <li><a href="/" class="nav-link">Dashboard</a></li>
+            <li><a href="/settings" class="nav-link">Configuracion</a></li>
+            <li><a href="/bots/new" class="nav-link nav-cta">+ Nuevo Bot</a></li>
         </ul>
     </nav>
 
@@ -29,8 +37,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="container">
-        <small>GeneradorContenido v0.1.0</small>
+    <footer class="container footer-premium">
+        <small>GeneradorContenido v0.1.0 &mdash; Automatiza tu contenido</small>
     </footer>
 
     <script src="/static/js/app.js"></script>

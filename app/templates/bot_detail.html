@@ -3,64 +3,56 @@
 {% block title %}{{ bot.name }} - GeneradorContenido{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h1>{{ bot.name }}</h1>
-    <p>{{ bot.niche }} &middot;
+<div class="page-header">
+    <h1>{{ bot.name }}
         {% if bot.is_enabled %}
-        <span class="badge-active">Activo</span>
+        <span class="badge-active"><span class="pulse-dot"></span> Activo</span>
         {% else %}
         <span class="badge-inactive">Inactivo</span>
         {% endif %}
-    </p>
-</hgroup>
-
-<div class="grid">
-    <article>
-        <header><h3>Configuracion</h3></header>
-        <table>
-            <tr><td><strong>Nicho</strong></td><td>{{ bot.niche }}</td></tr>
-            <tr><td><strong>Idioma</strong></td><td>{{ bot.language }}</td></tr>
-            <tr><td><strong>Videos/dia</strong></td><td>{{ bot.videos_per_day }}</td></tr>
-            <tr><td><strong>Proveedor video</strong></td><td>{{ bot.video_provider }}</td></tr>
-            <tr><td><strong>Duracion</strong></td><td>{{ bot.video_duration_seconds }}s</td></tr>
-            <tr><td><strong>Modelo Gemini</strong></td><td>{{ bot.gemini_model }}</td></tr>
-            <tr><td><strong>Tendencias</strong></td><td>{{ "Si" if bot.use_trends else "No" }}</td></tr>
-            <tr><td><strong>Telegram</strong></td><td>{{ bot.telegram_chat_id or "No configurado" }}</td></tr>
-        </table>
-    </article>
-
-    <article>
-        <header><h3>Descripcion del nicho</h3></header>
-        <p>{{ bot.niche_description or "Sin descripcion" }}</p>
-        <hr>
-        <h4>Estilo</h4>
-        <p>{{ bot.content_style or "Sin estilo definido" }}</p>
-    </article>
+    </h1>
+    <p>{{ bot.niche }} &middot; {{ bot.video_provider | upper }} &middot; {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}/dia</p>
 </div>
 
-<div class="grid">
-    <a href="/bots/{{ bot.slug }}/content" role="button" class="outline">Contenido generado</a>
-    <a href="/bots/{{ bot.slug }}/credentials" role="button" class="outline">Credenciales</a>
-    <a href="/bots/{{ bot.slug }}/logs" role="button" class="outline">Logs del pipeline</a>
+{% if pending_count and pending_count > 0 %}
+<div class="pending-banner">
+    {{ pending_count }} contenido{{ "s" if pending_count > 1 }} pendiente{{ "s" if pending_count > 1 }} de aprobacion
+    <a href="/bots/{{ bot.slug }}/content?filter=pending_approval">Revisar ahora &rarr;</a>
 </div>
-
-{% if bot.custom_prompts %}
-<article>
-    <header><h3>Prompts personalizados</h3></header>
-    <ol>
-        {% for prompt in bot.custom_prompts %}
-        <li>{{ prompt }}</li>
-        {% endfor %}
-    </ol>
-</article>
 {% endif %}
 
-<div class="grid">
-    <a href="/bots/{{ bot.slug }}/edit" role="button">Editar configuracion</a>
+<!-- Info cards -->
+<div class="info-grid">
+    <div class="info-card">
+        <h3>Configuracion</h3>
+        <div class="info-row"><span class="info-label">Nicho</span><span class="info-value">{{ bot.niche }}</span></div>
+        <div class="info-row"><span class="info-label">Idioma</span><span class="info-value">{{ bot.language | upper }}</span></div>
+        <div class="info-row"><span class="info-label">Videos/dia</span><span class="info-value">{{ bot.videos_per_day }}</span></div>
+        <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ bot.video_provider | upper }}</span></div>
+        <div class="info-row"><span class="info-label">Duracion</span><span class="info-value">{{ bot.video_duration_seconds }}s</span></div>
+        <div class="info-row"><span class="info-label">Tendencias</span><span class="info-value">{{ "Si" if bot.use_trends else "No" }}</span></div>
+    </div>
+
+    <div class="info-card">
+        <h3>Descripcion</h3>
+        <p style="color: var(--gc-text-muted); font-size: 0.9rem; line-height: 1.6;">{{ bot.niche_description or "Sin descripcion" }}</p>
+        {% if bot.content_style %}
+        <div class="info-row" style="margin-top: 0.75rem; border-top: 1px solid var(--gc-surface-border); padding-top: 0.75rem;">
+            <span class="info-label">Estilo</span>
+            <span class="info-value">{{ bot.content_style }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="action-bar">
+    <a href="/bots/{{ bot.slug }}/edit" class="btn-action primary">Editar</a>
     <button
         hx-post="/bots/{{ bot.slug }}/toggle"
         hx-target="#action-result"
         hx-swap="innerHTML"
+        class="btn-action"
     >
         {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
     </button>
@@ -68,17 +60,41 @@
         hx-post="/bots/{{ bot.slug }}/run"
         hx-target="#action-result"
         hx-swap="innerHTML"
-        class="contrast"
+        class="btn-gradient"
+        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
     >
         Ejecutar ahora
     </button>
+</div>
+<div id="action-result"></div>
+
+<!-- Navigation links -->
+<div class="action-bar">
+    <a href="/bots/{{ bot.slug }}/content" class="btn-action">Contenido generado</a>
+    <a href="/bots/{{ bot.slug }}/logs" class="btn-action">Logs del pipeline</a>
+</div>
+
+{% if bot.custom_prompts %}
+<details>
+    <summary>Prompts personalizados</summary>
+    <ol>
+        {% for prompt in bot.custom_prompts %}
+        <li>{{ prompt }}</li>
+        {% endfor %}
+    </ol>
+</details>
+{% endif %}
+
+<!-- Danger zone -->
+<details class="danger-zone">
+    <summary>Zona peligrosa</summary>
+    <p>Eliminar este bot y todo su contenido asociado. Esta accion no se puede deshacer.</p>
     <button
         hx-post="/bots/{{ bot.slug }}/delete"
         hx-confirm="Estas seguro de que quieres eliminar {{ bot.name }}? Esta accion no se puede deshacer."
-        class="secondary outline"
+        class="btn-action danger"
     >
-        Eliminar
+        Eliminar bot
     </button>
-</div>
-<div id="action-result"></div>
+</details>
 {% endblock %}

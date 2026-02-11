@@ -3,10 +3,22 @@
 {% block title %}Contenido - {{ bot.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
+<div class="page-header">
     <h1>Contenido de {{ bot.name }}</h1>
     <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
-</hgroup>
+</div>
+
+<!-- Filter tabs -->
+<nav class="filter-nav">
+    <a href="/bots/{{ bot.slug }}/content"
+       class="{{ 'active' if not current_filter }}">Todos</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=pending_approval"
+       class="{{ 'active' if current_filter == 'pending_approval' }}">Pendientes</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=published"
+       class="{{ 'active' if current_filter == 'published' }}">Publicados</a>
+    <a href="/bots/{{ bot.slug }}/content?filter=failed"
+       class="{{ 'active' if current_filter == 'failed' }}">Fallidos</a>
+</nav>
 
 {% if items %}
 <table>
@@ -26,20 +38,22 @@
             <td>{{ item.id }}</td>
             <td>{{ (item.trend_topic or item.custom_prompt or "-")[:50] }}</td>
             <td>
-                <span class="status-{{ item.status }}">{{ item.status }}</span>
+                <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
             </td>
             <td>{{ item.video_provider or "-" }}</td>
             <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else "-" }}</td>
             <td>
-                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}">Ver detalle</a>
+                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="btn-action" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Ver detalle</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% else %}
-<article>
-    <p>No hay contenido generado todavia para este bot.</p>
-</article>
+<div class="empty-state">
+    <div class="empty-state-icon">&#128196;</div>
+    <h2>Sin contenido</h2>
+    <p>No hay contenido{% if current_filter %} con estado "{{ current_filter }}"{% endif %} generado todavia para este bot.</p>
+</div>
 {% endif %}
 {% endblock %}

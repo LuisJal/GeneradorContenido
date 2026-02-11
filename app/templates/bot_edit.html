@@ -3,12 +3,13 @@
 {% block title %}Editar {{ bot.name }} - GeneradorContenido{% endblock %}
 
 {% block content %}
-<h1>Editar {{ bot.name }}</h1>
+<div class="page-header">
+    <h1>Editar {{ bot.name }}</h1>
+    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
+</div>
 
 {% if errors.get("general") %}
-<article class="error">
-    <p><strong>Error:</strong> {{ errors.general }}</p>
-</article>
+<div class="flash-error">{{ errors.general }}</div>
 {% endif %}
 
 <form method="post" action="/bots/{{ bot.slug }}/edit">
@@ -65,14 +66,16 @@
         </label>
     </fieldset>
 
-    <button type="submit">Guardar cambios</button>
-    <a href="/bots/{{ bot.slug }}" role="button" class="secondary outline">Cancelar</a>
+    <div class="action-bar">
+        <button type="submit" class="btn-gradient">Guardar cambios</button>
+        <a href="/bots/{{ bot.slug }}" class="btn-action">Cancelar</a>
+    </div>
 </form>
 
-<!-- Credentials section -->
+<!-- ===== CREDENTIALS SECTION (always visible) ===== -->
 <div class="credentials-section">
     <h2>Credenciales de Redes Sociales</h2>
-    <p>Configura las credenciales de publicacion para este bot. Cada plataforma necesita su propio token de acceso.</p>
+    <p>Configura las credenciales de publicacion para este bot. Cada plataforma necesita su propio access token.</p>
 
     {% if credentials %}
     <table>
@@ -91,7 +94,7 @@
                 <td>{{ cred.platform_user_id or "-" }}</td>
                 <td>
                     {% if cred.is_active %}
-                    <span class="badge-active">Activa</span>
+                    <span class="badge-active"><span class="pulse-dot"></span> Activa</span>
                     {% else %}
                     <span class="badge-inactive">Inactiva</span>
                     {% endif %}
@@ -101,7 +104,8 @@
                         hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/toggle"
                         hx-swap="outerHTML"
                         hx-target="closest tr"
-                        class="outline"
+                        class="btn-action"
+                        style="padding: 0.3rem 0.8rem; font-size: 0.8rem;"
                     >
                         {% if cred.is_active %}Desactivar{% else %}Activar{% endif %}
                     </button>
@@ -111,11 +115,13 @@
         </tbody>
     </table>
     {% else %}
-    <p><em>No hay credenciales configuradas.</em></p>
+    <div class="cred-empty">
+        No hay credenciales configuradas. Agrega una credencial para empezar a publicar contenido.
+    </div>
     {% endif %}
 
-    <details>
-        <summary>Agregar credencial</summary>
+    <div class="cred-add-form">
+        <h3>Agregar credencial</h3>
         <form method="post" action="/bots/{{ bot.slug }}/credentials">
             <div class="grid">
                 <label>
@@ -141,8 +147,8 @@
                     <input type="text" name="platform_user_id">
                 </label>
             </div>
-            <button type="submit">Agregar credencial</button>
+            <button type="submit" class="btn-action primary">Agregar credencial</button>
         </form>
-    </details>
+    </div>
 </div>
 {% endblock %}

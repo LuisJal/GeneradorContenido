@@ -3,24 +3,23 @@
 {% block title %}Dashboard - GeneradorContenido{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h1>Dashboard</h1>
-    <p>Gestiona tus bots de contenido autonomo</p>
-</hgroup>
+<div class="hero-section">
+    <h1>Tus Bots</h1>
+    <p class="hero-subtitle">Gestiona tus bots de generacion de contenido autonomo</p>
+</div>
 
 {% if bots %}
-<div class="grid">
+<div class="bot-grid">
     {% for bot in bots %}
     {% include "partials/bot_card.html" %}
     {% endfor %}
 </div>
 {% else %}
-<article>
-    <header>
-        <h3>No hay bots configurados</h3>
-    </header>
-    <p>Crea tu primer bot para empezar a generar contenido automaticamente.</p>
-    <a href="/bots/new" role="button">Crear primer bot</a>
-</article>
+<div class="empty-state">
+    <div class="empty-state-icon">&#9883;</div>
+    <h2>No hay bots configurados</h2>
+    <p>Crea tu primer bot para empezar a generar contenido automaticamente para tus redes sociales.</p>
+    <a href="/bots/new" role="button" class="btn-gradient">Crear primer bot</a>
+</div>
 {% endif %}
 {% endblock %}

@@ -3,10 +3,10 @@
 {% block title %}Contenido - {{ bot.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
+<div class="page-header">
     <h1>Contenido de {{ bot.name }}</h1>
     <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
-</hgroup>
+</div>
 
 <!-- Filter tabs -->
 <nav class="filter-nav">
@@ -43,15 +43,17 @@
             <td>{{ item.video_provider or "-" }}</td>
             <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else "-" }}</td>
             <td>
-                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}">Ver detalle</a>
+                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="btn-action" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Ver detalle</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% else %}
-<article>
+<div class="empty-state">
+    <div class="empty-state-icon">&#128196;</div>
+    <h2>Sin contenido</h2>
     <p>No hay contenido{% if current_filter %} con estado "{{ current_filter }}"{% endif %} generado todavia para este bot.</p>
-</article>
+</div>
 {% endif %}
 {% endblock %}

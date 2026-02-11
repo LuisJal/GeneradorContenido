@@ -1,22 +1,27 @@
-<article class="bot-card">
-    <header>
-        <hgroup>
+<div class="bot-card-premium">
+    <div class="bot-card-header">
+        <div class="bot-card-title">
             <h3><a href="/bots/{{ bot.slug }}">{{ bot.name }}</a></h3>
-            <p>{{ bot.niche }}
-                {% if bot.is_enabled %}
-                <span class="badge-active">Activo</span>
-                {% else %}
-                <span class="badge-inactive">Inactivo</span>
-                {% endif %}
-            </p>
-        </hgroup>
-    </header>
+            <span class="bot-card-niche">{{ bot.niche }}</span>
+        </div>
+        {% if bot.is_enabled %}
+        <span class="badge-active"><span class="pulse-dot"></span> Activo</span>
+        {% else %}
+        <span class="badge-inactive">Inactivo</span>
+        {% endif %}
+    </div>
 
     {% if bot.niche_description %}
-    <p class="truncate">{{ bot.niche_description[:120] }}{% if bot.niche_description|length > 120 %}...{% endif %}</p>
+    <p class="bot-card-desc">{{ bot.niche_description[:140] }}{% if bot.niche_description|length > 140 %}...{% endif %}</p>
     {% endif %}
 
-    <footer>
-        <a href="/bots/{{ bot.slug }}" role="button" class="outline">Gestionar</a>
-    </footer>
-</article>
+    <div class="bot-card-meta">
+        <span>{{ bot.video_provider | upper }}</span>
+        <span>{{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}/dia</span>
+        <span>{{ bot.language | upper }}</span>
+    </div>
+
+    <div class="bot-card-actions">
+        <a href="/bots/{{ bot.slug }}" class="btn-card-primary">Gestionar</a>
+    </div>
+</div>

@@ -3,13 +3,14 @@
 {% block title %}Configuracion - GeneradorContenido{% endblock %}
 
 {% block content %}
-<h1>Configuracion Global</h1>
+<div class="page-header">
+    <h1>Configuracion Global</h1>
+    <p>Estas claves se comparten entre todos los bots. Las credenciales de publicacion (IG, YT, TT) se configuran en cada bot.</p>
+</div>
 
 {% if message %}
 <div class="flash-success">{{ message }}</div>
 {% endif %}
-
-<p>Estas claves se comparten entre todos los bots. Las credenciales de publicacion (Instagram, YouTube, TikTok) se configuran en cada bot individualmente.</p>
 
 <form method="post" action="/settings">
     <fieldset class="settings-fieldset">
@@ -55,7 +56,9 @@
         <small>Token para enviar notificaciones via Telegram (opcional).</small>
     </fieldset>
 
-    <button type="submit">Guardar configuracion</button>
-    <a href="/" role="button" class="secondary outline">Volver al Dashboard</a>
+    <div class="action-bar">
+        <button type="submit" class="btn-gradient">Guardar configuracion</button>
+        <a href="/" class="btn-action">Volver al Dashboard</a>
+    </div>
 </form>
 {% endblock %}

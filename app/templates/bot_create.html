@@ -3,12 +3,13 @@
 {% block title %}Nuevo Bot - GeneradorContenido{% endblock %}
 
 {% block content %}
-<h1>Crear Nuevo Bot</h1>
+<div class="page-header">
+    <h1>Crear Nuevo Bot</h1>
+    <p>Configura un nuevo bot de generacion de contenido autonomo</p>
+</div>
 
 {% if errors.get("general") %}
-<article class="error">
-    <p><strong>Error:</strong> {{ errors.general }}</p>
-</article>
+<div class="flash-error">{{ errors.general }}</div>
 {% endif %}
 
 <form method="post" action="/bots/new">
@@ -76,7 +77,9 @@
         </label>
     </fieldset>
 
-    <button type="submit">Crear Bot</button>
-    <a href="/" role="button" class="secondary outline">Cancelar</a>
+    <div class="action-bar">
+        <button type="submit" class="btn-gradient">Crear Bot</button>
+        <a href="/" class="btn-action">Cancelar</a>
+    </div>
 </form>
 {% endblock %}

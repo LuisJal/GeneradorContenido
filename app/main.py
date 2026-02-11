@@ -18,7 +18,34 @@ APP_DIR = Path(__file__).resolve().parent
 async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("GeneradorContenido starting up (env=%s)", settings.app_env)
+
+    # Initialize APScheduler
+    from app.services.scheduler_service import (
+        init_scheduler,
+        schedule_all_bots,
+        schedule_video_polling,
+    )
+    from app.database import get_db
+
+    sched = init_scheduler()
+    schedule_video_polling()
+
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        schedule_all_bots(db)
+    finally:
+        try:
+            next(db_gen, None)
+        except StopIteration:
+            pass
+
+    sched.start()
+    logger.info("Scheduler started")
+
     yield
+
+    sched.shutdown(wait=False)
     logger.info("GeneradorContenido shutting down")
 
 

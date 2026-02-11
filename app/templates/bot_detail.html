@@ -53,10 +53,18 @@
     <a href="/bots/{{ bot.slug }}/edit" role="button">Editar configuracion</a>
     <button
         hx-post="/bots/{{ bot.slug }}/toggle"
-        hx-target="#toggle-result"
+        hx-target="#action-result"
         hx-swap="innerHTML"
     >
         {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
+    </button>
+    <button
+        hx-post="/bots/{{ bot.slug }}/run"
+        hx-target="#action-result"
+        hx-swap="innerHTML"
+        class="contrast"
+    >
+        Ejecutar ahora
     </button>
     <button
         hx-post="/bots/{{ bot.slug }}/delete"
@@ -66,5 +74,5 @@
         Eliminar
     </button>
 </div>
-<div id="toggle-result"></div>
+<div id="action-result"></div>
 {% endblock %}

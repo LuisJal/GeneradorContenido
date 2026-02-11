@@ -161,9 +161,39 @@ async def bot_toggle(request: Request, slug: str, db: Session = Depends(get_db))
     bot = bot_manager.toggle_bot(db, slug)
     if not bot:
         return HTMLResponse("Bot not found", status_code=404)
+
+    # Update scheduler
+    try:
+        from app.services.scheduler_service import schedule_bot, unschedule_bot
+        if bot.is_enabled:
+            schedule_bot(bot)
+        else:
+            unschedule_bot(bot.id)
+    except RuntimeError:
+        pass  # Scheduler not initialized (e.g. in tests)
+
     return templates.TemplateResponse(request, "partials/bot_card.html", {
         "bot": bot,
     })
+
+
+@router.post("/bots/{slug}/run")
+async def bot_run_now(request: Request, slug: str, db: Session = Depends(get_db)):
+    bot = bot_manager.get_bot_by_slug(db, slug)
+    if not bot:
+        return HTMLResponse("Bot not found", status_code=404)
+    try:
+        from app.services.scheduler_service import trigger_now
+        content = await trigger_now(bot, db)
+        return templates.TemplateResponse(request, "partials/bot_card.html", {
+            "bot": bot,
+            "message": f"Pipeline iniciado (contenido #{content.id})",
+        })
+    except Exception as e:
+        return templates.TemplateResponse(request, "partials/bot_card.html", {
+            "bot": bot,
+            "error": str(e),
+        })
 
 
 @router.post("/bots/{slug}/delete")

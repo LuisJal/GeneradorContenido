@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ bot.name }} - GeneradorContenido{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>{{ bot.name }}</h1>
+    <p>{{ bot.niche }} &middot;
+        {% if bot.is_enabled %}
+        <span class="badge-active">Activo</span>
+        {% else %}
+        <span class="badge-inactive">Inactivo</span>
+        {% endif %}
+    </p>
+</hgroup>
+
+<div class="grid">
+    <article>
+        <header><h3>Configuracion</h3></header>
+        <table>
+            <tr><td><strong>Nicho</strong></td><td>{{ bot.niche }}</td></tr>
+            <tr><td><strong>Idioma</strong></td><td>{{ bot.language }}</td></tr>
+            <tr><td><strong>Videos/dia</strong></td><td>{{ bot.videos_per_day }}</td></tr>
+            <tr><td><strong>Proveedor video</strong></td><td>{{ bot.video_provider }}</td></tr>
+            <tr><td><strong>Duracion</strong></td><td>{{ bot.video_duration_seconds }}s</td></tr>
+            <tr><td><strong>Modelo Gemini</strong></td><td>{{ bot.gemini_model }}</td></tr>
+            <tr><td><strong>Tendencias</strong></td><td>{{ "Si" if bot.use_trends else "No" }}</td></tr>
+            <tr><td><strong>Telegram</strong></td><td>{{ bot.telegram_chat_id or "No configurado" }}</td></tr>
+        </table>
+    </article>
+
+    <article>
+        <header><h3>Descripcion del nicho</h3></header>
+        <p>{{ bot.niche_description or "Sin descripcion" }}</p>
+        <hr>
+        <h4>Estilo</h4>
+        <p>{{ bot.content_style or "Sin estilo definido" }}</p>
+    </article>
+</div>
+
+{% if bot.custom_prompts %}
+<article>
+    <header><h3>Prompts personalizados</h3></header>
+    <ol>
+        {% for prompt in bot.custom_prompts %}
+        <li>{{ prompt }}</li>
+        {% endfor %}
+    </ol>
+</article>
+{% endif %}
+
+<div class="grid">
+    <a href="/bots/{{ bot.slug }}/edit" role="button">Editar configuracion</a>
+    <button
+        hx-post="/bots/{{ bot.slug }}/toggle"
+        hx-target="#toggle-result"
+        hx-swap="innerHTML"
+    >
+        {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
+    </button>
+    <button
+        hx-post="/bots/{{ bot.slug }}/delete"
+        hx-confirm="Estas seguro de que quieres eliminar {{ bot.name }}? Esta accion no se puede deshacer."
+        class="secondary outline"
+    >
+        Eliminar
+    </button>
+</div>
+<div id="toggle-result"></div>
+{% endblock %}

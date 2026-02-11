@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Bot - GeneradorContenido{% endblock %}
+
+{% block content %}
+<h1>Crear Nuevo Bot</h1>
+
+{% if errors.get("general") %}
+<article class="error">
+    <p><strong>Error:</strong> {{ errors.general }}</p>
+</article>
+{% endif %}
+
+<form method="post" action="/bots/new">
+    <fieldset>
+        <legend>Informacion basica</legend>
+
+        <label for="name">Nombre del Bot *</label>
+        <input type="text" id="name" name="name" required maxlength="100" placeholder="FitBot">
+
+        <label for="niche">Nicho *</label>
+        <input type="text" id="niche" name="niche" required maxlength="100" placeholder="fitness">
+
+        <label for="template">Cargar desde template</label>
+        <select id="template" name="template">
+            <option value="">-- Sin template --</option>
+            {% for t in templates %}
+            <option value="{{ t }}">{{ t | capitalize }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="niche_description">Descripcion del nicho</label>
+        <textarea id="niche_description" name="niche_description" rows="3" placeholder="Describe el nicho en detalle para que la IA genere mejor contenido..."></textarea>
+
+        <label for="content_style">Estilo de contenido</label>
+        <input type="text" id="content_style" name="content_style" placeholder="Energetico, motivacional, conciso">
+
+        <label for="language">Idioma</label>
+        <select id="language" name="language">
+            <option value="es" selected>Espanol</option>
+            <option value="en">English</option>
+        </select>
+    </fieldset>
+
+    <fieldset>
+        <legend>Configuracion de video</legend>
+
+        <label for="video_provider">Proveedor de video</label>
+        <select id="video_provider" name="video_provider">
+            <option value="veo3" selected>Google Veo 3</option>
+            <option value="kling3">Kling 3.0</option>
+        </select>
+
+        <label for="video_duration_seconds">Duracion del video (segundos)</label>
+        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="15" min="5" max="60">
+
+        <label for="videos_per_day">Videos por dia</label>
+        <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">
+    </fieldset>
+
+    <fieldset>
+        <legend>Programacion</legend>
+
+        <label for="schedule_times">Horarios (separados por coma)</label>
+        <input type="text" id="schedule_times" name="schedule_times" value="09:00" placeholder="09:00, 18:00">
+
+        <label for="schedule_timezone">Zona horaria</label>
+        <input type="text" id="schedule_timezone" name="schedule_timezone" value="Europe/Madrid">
+
+        <label for="use_trends">
+            <input type="checkbox" id="use_trends" name="use_trends" checked>
+            Usar scraping de tendencias
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>APIs y contacto</legend>
+
+        <label for="gemini_api_key">Gemini API Key</label>
+        <input type="password" id="gemini_api_key" name="gemini_api_key" placeholder="AIzaSy... (opcional, usa la global si esta vacia)">
+
+        <label for="telegram_chat_id">Telegram Chat ID</label>
+        <input type="text" id="telegram_chat_id" name="telegram_chat_id" placeholder="123456789">
+
+        <label for="contact_email">Email de contacto</label>
+        <input type="email" id="contact_email" name="contact_email" placeholder="tu@email.com">
+    </fieldset>
+
+    <button type="submit">Crear Bot</button>
+    <a href="/" role="button" class="secondary outline">Cancelar</a>
+</form>
+{% endblock %}

@@ -1,0 +1,22 @@
+{
+    "niche": "fitness",
+    "niche_description": "Salud, fitness, rutinas de ejercicio, nutricion, motivacion gym y estilo de vida wellness para audiencia de 18-35 anos.",
+    "content_style": "Energetico, motivacional, conciso. Usa verbos de accion. Hook fuerte en los primeros 2 segundos. CTA claro al final.",
+    "language": "es",
+    "videos_per_day": 1,
+    "posting_schedule": {"times": ["09:00"], "timezone": "Europe/Madrid"},
+    "use_trends": true,
+    "video_provider": "veo3",
+    "video_duration_seconds": 15,
+    "gemini_model": "gemini-2.5-flash",
+    "script_system_prompt": "Eres un creador de contenido de fitness carismatico que hace videos cortos virales. Tu contenido es directo, accionable y visualmente atractivo. Cada guion debe tener: (1) un hook que enganche en los primeros 2 segundos, (2) consejo de fitness valioso en el cuerpo, (3) un CTA claro al final. Manten el tiempo de habla bajo 45 segundos. Incluye sugerencias visuales entre corchetes.",
+    "custom_prompts": [
+        "5 ejercicios que puedes hacer en cualquier lugar sin equipamiento",
+        "El error mas grande que cometen los principiantes en el gym",
+        "Que comer antes y despues de entrenar"
+    ],
+    "trend_sources": {
+        "subreddits": ["fitness", "gym", "bodyweightfitness"],
+        "google_trends_category": "health"
+    }
+}

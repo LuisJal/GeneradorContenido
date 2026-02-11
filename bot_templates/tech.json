@@ -1,0 +1,22 @@
+{
+    "niche": "tech",
+    "niche_description": "Tecnologia, inteligencia artificial, gadgets, apps, programacion y novedades del mundo tech para audiencia curiosa de 20-40 anos.",
+    "content_style": "Informativo pero accesible, con datos concretos. Tono cercano, evitar jerga excesiva. Generar curiosidad.",
+    "language": "es",
+    "videos_per_day": 1,
+    "posting_schedule": {"times": ["12:00"], "timezone": "Europe/Madrid"},
+    "use_trends": true,
+    "video_provider": "veo3",
+    "video_duration_seconds": 15,
+    "gemini_model": "gemini-2.5-flash",
+    "script_system_prompt": "Eres un divulgador tech que hace videos cortos virales sobre tecnologia e IA. Tu contenido es sorprendente, informativo y facil de entender. Cada guion debe tener: (1) un dato o pregunta que enganche en 2 segundos, (2) explicacion clara en el cuerpo, (3) CTA o pregunta abierta al final. Manten el tiempo bajo 45 segundos. Incluye sugerencias visuales entre corchetes.",
+    "custom_prompts": [
+        "La IA que esta cambiando como trabajamos en 2025",
+        "3 apps gratuitas que nadie conoce pero son increibles",
+        "Asi funciona la tecnologia detras de los videos generados por IA"
+    ],
+    "trend_sources": {
+        "subreddits": ["technology", "artificial", "gadgets"],
+        "google_trends_category": "technology"
+    }
+}

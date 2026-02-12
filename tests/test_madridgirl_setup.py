@@ -69,8 +69,8 @@ def test_bot_detail_shows_setup_checklist(client, db):
     _ensure_default_bots(db)
     response = client.get("/bots/madridgirl")
     assert response.status_code == 200
-    assert "Estado de configuracion" in response.text
-    assert "Configuracion pendiente" in response.text
+    # Setup wizard shows with configuration items
+    assert "Configuracion" in response.text
     assert "Gemini API Key" in response.text
     assert "ElevenLabs API Key" in response.text
     assert "Hedra API Key" in response.text
@@ -101,13 +101,12 @@ def test_run_button_disabled_when_not_ready(client, db):
 
 
 def test_api_guide_shown_when_not_ready(client, db):
-    """API keys guide is shown when setup is incomplete."""
+    """Setup checklist shows configure links when setup is incomplete."""
     _ensure_default_bots(db)
     response = client.get("/bots/madridgirl")
-    assert "Donde obtener las claves" in response.text
-    assert "aistudio.google.com" in response.text
-    assert "elevenlabs.io" in response.text
-    assert "hedra.com" in response.text
+    # Each missing item should have a "Configurar" action link
+    assert "Configurar" in response.text
+    assert "/settings" in response.text
 
 
 # ── Custom prompts editor tests ──

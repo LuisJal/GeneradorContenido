@@ -196,10 +196,30 @@ async def bot_detail(request: Request, slug: str, db: Session = Depends(get_db))
         checks["all_ready"] = all(checks.values())
         setup_status = checks
 
+    # Recent content for inline tab
+    recent_content = (
+        db.query(ContentItem)
+        .filter(ContentItem.bot_id == bot.id)
+        .order_by(desc(ContentItem.created_at))
+        .limit(10)
+        .all()
+    )
+
+    # Recent logs for inline tab
+    recent_logs = (
+        db.query(PipelineLog)
+        .filter(PipelineLog.bot_id == bot.id)
+        .order_by(desc(PipelineLog.created_at))
+        .limit(20)
+        .all()
+    )
+
     return templates.TemplateResponse(request, "bot_detail.html", {
         "bot": bot,
         "pending_count": pending_count,
         "setup_status": setup_status,
+        "recent_content": recent_content,
+        "recent_logs": recent_logs,
     })
 
 

@@ -2,259 +2,276 @@
 
 {% block title %}{{ bot.name }} - GeneradorContenido{% endblock %}
 
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <span class="current">{{ bot.name }}</span>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h1>{{ bot.name }}
-        {% if bot.is_enabled %}
-        <span class="badge-active"><span class="pulse-dot"></span> Activo</span>
-        {% else %}
-        <span class="badge-inactive">Inactivo</span>
-        {% endif %}
-    </h1>
-    <p>{{ bot.niche }} &middot; {{ bot.video_provider | upper }} &middot; {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}/dia</p>
-</div>
+<div x-data="{ tab: 'overview', showSetup: {{ 'true' if setup_status and not setup_status.all_ready else 'false' }} }">
 
-{% if pending_count and pending_count > 0 %}
-<div class="pending-banner">
-    {{ pending_count }} contenido{{ "s" if pending_count > 1 }} pendiente{{ "s" if pending_count > 1 }} de aprobacion
-    <a href="/bots/{{ bot.slug }}/content?filter=pending_approval">Revisar ahora &rarr;</a>
-</div>
-{% endif %}
-
-<!-- ===== SETUP STATUS (talking_head bots) ===== -->
-{% if setup_status %}
-<div class="setup-card">
-    <div class="setup-card-header">
-        {% if setup_status.all_ready %}
-        <span class="setup-badge setup-badge-ready">Listo para generar</span>
-        {% else %}
-        <span class="setup-badge setup-badge-pending">Configuracion pendiente</span>
-        {% endif %}
-        <h2>Estado de configuracion</h2>
-        <p>Completa todos los pasos para empezar a generar videos.</p>
-    </div>
-
-    <ul class="setup-checklist">
-        <!-- API Keys -->
-        <li class="setup-item {{ 'setup-ok' if setup_status.gemini_key else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.gemini_key else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">Gemini API Key</span>
-                <span class="setup-hint">Genera guiones y descripciones con IA</span>
-            </div>
-            {% if not setup_status.gemini_key %}
-            <a href="/settings" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-        <li class="setup-item {{ 'setup-ok' if setup_status.elevenlabs_key else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.elevenlabs_key else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">ElevenLabs API Key</span>
-                <span class="setup-hint">Convierte el guion en audio con voz realista</span>
-            </div>
-            {% if not setup_status.elevenlabs_key %}
-            <a href="/settings" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-        <li class="setup-item {{ 'setup-ok' if setup_status.hedra_key else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.hedra_key else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">Hedra API Key</span>
-                <span class="setup-hint">Genera video con lip-sync (Character-3)</span>
-            </div>
-            {% if not setup_status.hedra_key %}
-            <a href="/settings" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-
-        <!-- Bot character config -->
-        <li class="setup-item {{ 'setup-ok' if setup_status.face_url else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.face_url else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">Imagen de referencia (cara)</span>
-                <span class="setup-hint">Foto frontal del personaje para lip-sync</span>
-            </div>
-            {% if not setup_status.face_url %}
-            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-        <li class="setup-item {{ 'setup-ok' if setup_status.voice_id else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.voice_id else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">ElevenLabs Voice ID</span>
-                <span class="setup-hint">ID de la voz asignada al personaje</span>
-            </div>
-            {% if not setup_status.voice_id %}
-            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-        <li class="setup-item {{ 'setup-ok' if setup_status.personality else 'setup-missing' }}">
-            <span class="setup-icon">{{ '&#10003;' if setup_status.personality else '&#9888;' }}</span>
-            <div class="setup-info">
-                <span class="setup-label">Personalidad del personaje</span>
-                <span class="setup-hint">Define el tono y estilo de los guiones</span>
-            </div>
-            {% if not setup_status.personality %}
-            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
-            {% endif %}
-        </li>
-    </ul>
-
-    <!-- Character preview card -->
-    {% if setup_status.face_url or setup_status.voice_id or setup_status.personality %}
-    <div class="character-preview">
-        <h3>Personaje</h3>
-        <div class="character-grid">
-            {% if bot.character_face_url %}
-            <div class="character-face">
-                <img src="{{ bot.character_face_url }}" alt="Cara del personaje"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="character-face-placeholder" style="display:none;">Sin imagen</div>
-            </div>
-            {% endif %}
-            <div class="character-details">
-                {% if bot.character_voice_id %}
-                <div class="info-row"><span class="info-label">Voice ID</span><span class="info-value">{{ bot.character_voice_id }}</span></div>
-                {% endif %}
-                {% if bot.character_personality %}
-                <p style="color: var(--gc-text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0.5rem 0 0;">
-                    {{ bot.character_personality[:200] }}{{ '...' if bot.character_personality|length > 200 }}
-                </p>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-4);">
+        <div>
+            <div class="flex items-center gap-3" style="margin-bottom:var(--space-1);">
+                <h1 style="margin:0;font-size:var(--text-xl);">{{ bot.name }}</h1>
+                {% if bot.is_enabled %}
+                <span class="badge-active"><span class="pulse-dot"></span> Activo</span>
+                {% else %}
+                <span class="badge-inactive">Inactivo</span>
                 {% endif %}
             </div>
+            <p style="margin:0;font-size:var(--text-sm);color:var(--color-text-tertiary);">
+                {{ bot.niche }} &middot; {{ bot.video_provider | replace("_", " ") | title }} &middot; {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}/dia
+            </p>
+        </div>
+
+        <!-- Action bar: Primary CTA + Dropdown -->
+        <div class="flex items-center gap-3">
+            {% if bot.story_arc_enabled %}
+            <button
+                hx-post="/bots/{{ bot.slug }}/run-arc"
+                hx-target="#action-result"
+                hx-swap="innerHTML"
+                class="btn btn-primary btn-loading-trigger"
+                {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
+            >
+                <span class="btn-text">Generar Arco ({{ bot.story_arc_chapters }} caps)</span>
+                <span class="btn-spinner" style="display:none;">Generando...</span>
+            </button>
+            {% else %}
+            <button
+                hx-post="/bots/{{ bot.slug }}/run"
+                hx-target="#action-result"
+                hx-swap="innerHTML"
+                class="btn btn-primary btn-loading-trigger"
+                {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
+            >
+                <span class="btn-text">Ejecutar Ahora</span>
+                <span class="btn-spinner" style="display:none;">Generando...</span>
+            </button>
+            {% endif %}
+
+            <!-- More actions dropdown -->
+            <div class="dropdown" x-data="{ open: false }">
+                <button class="btn btn-secondary" @click="open = !open">
+                    Mas
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L1 3h10z"/></svg>
+                </button>
+                <div class="dropdown-menu" x-show="open" @click.away="open = false" x-cloak
+                     x-transition:enter="slide-enter-active" x-transition:enter-start="slide-enter-from" x-transition:leave="slide-leave-active" x-transition:leave-start="slide-leave-to">
+                    <a href="/bots/{{ bot.slug }}/edit" class="dropdown-item">Editar</a>
+                    {% if bot.story_arc_enabled %}
+                    <button
+                        hx-post="/bots/{{ bot.slug }}/run"
+                        hx-target="#action-result"
+                        hx-swap="innerHTML"
+                        class="dropdown-item"
+                    >Ejecutar (1 video)</button>
+                    {% endif %}
+                    <button
+                        hx-post="/bots/{{ bot.slug }}/toggle"
+                        hx-target="#action-result"
+                        hx-swap="innerHTML"
+                        class="dropdown-item"
+                    >{% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}</button>
+                    <div class="dropdown-separator"></div>
+                    <button
+                        hx-post="/bots/{{ bot.slug }}/delete"
+                        hx-confirm="Estas seguro de que quieres eliminar {{ bot.name }}? Esta accion no se puede deshacer."
+                        class="dropdown-item danger"
+                    >Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="action-result"></div>
+
+    {% if pending_count and pending_count > 0 %}
+    <div class="pending-banner">
+        <span>{{ pending_count }} contenido{{ "s" if pending_count > 1 }} pendiente{{ "s" if pending_count > 1 }} de aprobacion</span>
+        <a href="/bots/{{ bot.slug }}/content?filter=pending_approval">Revisar</a>
+    </div>
+    {% endif %}
+
+    <!-- Setup Wizard (collapsible) -->
+    {% if setup_status %}
+    <div class="setup-card" style="margin-bottom:var(--space-6);">
+        <div class="setup-card-header" @click="showSetup = !showSetup" style="cursor:pointer;margin-bottom:0;"
+             :style="showSetup ? 'margin-bottom:var(--space-5);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-separator);' : 'margin-bottom:0;padding-bottom:0;border-bottom:none;'">
+            <div class="flex items-center gap-3">
+                {% if setup_status.all_ready %}
+                <span class="setup-badge setup-badge-ready">Listo</span>
+                {% else %}
+                <span class="setup-badge setup-badge-pending">{{ setup_status.values()|select|list|length - 1 }}/6</span>
+                {% endif %}
+                <h2 style="margin:0;">Configuracion</h2>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-text-tertiary)" :style="showSetup ? 'transform:rotate(180deg)' : ''" style="transition:transform 0.2s;">
+                <path d="M4 6l4 4 4-4"/>
+            </svg>
+        </div>
+
+        <div x-show="showSetup" x-collapse x-cloak>
+            <ul class="setup-checklist">
+                {% for item in [
+                    ("gemini_key", "Gemini API Key", "Genera guiones y descripciones con IA", "/settings"),
+                    ("elevenlabs_key", "ElevenLabs API Key", "Convierte el guion en audio con voz realista", "/settings"),
+                    ("hedra_key", "Hedra API Key", "Genera video con lip-sync (Character-3)", "/settings"),
+                    ("face_url", "Imagen de referencia (cara)", "Foto frontal del personaje para lip-sync", "/bots/" ~ bot.slug ~ "/edit"),
+                    ("voice_id", "ElevenLabs Voice ID", "ID de la voz asignada al personaje", "/bots/" ~ bot.slug ~ "/edit"),
+                    ("personality", "Personalidad del personaje", "Define el tono y estilo de los guiones", "/bots/" ~ bot.slug ~ "/edit"),
+                ] %}
+                <li class="setup-item {{ 'setup-ok' if setup_status[item[0]] else 'setup-missing' }}">
+                    <span class="setup-icon">{{ '&#10003;' if setup_status[item[0]] else '&#9888;' }}</span>
+                    <div class="setup-info">
+                        <span class="setup-label">{{ item[1] }}</span>
+                        <span class="setup-hint">{{ item[2] }}</span>
+                    </div>
+                    {% if not setup_status[item[0]] %}
+                    <a href="{{ item[3] }}" class="setup-action">Configurar</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+
+            <!-- Character preview -->
+            {% if setup_status.face_url or setup_status.voice_id or setup_status.personality %}
+            <div class="character-preview">
+                <h3>Personaje</h3>
+                <div class="character-grid">
+                    {% if bot.character_face_url %}
+                    <div class="character-face">
+                        <img src="{{ bot.character_face_url }}" alt="Cara del personaje"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="character-face-placeholder" style="display:none;">Sin imagen</div>
+                    </div>
+                    {% endif %}
+                    <div class="character-details">
+                        {% if bot.character_voice_id %}
+                        <div class="info-row"><span class="info-label">Voice ID</span><span class="info-value">{{ bot.character_voice_id }}</span></div>
+                        {% endif %}
+                        {% if bot.character_personality %}
+                        <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);line-height:1.5;margin:var(--space-2) 0 0;">
+                            {{ bot.character_personality[:200] }}{{ '...' if bot.character_personality|length > 200 }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
 
-    <!-- API keys guide -->
-    {% if not setup_status.all_ready %}
-    <div class="api-guide">
-        <h3>Donde obtener las claves</h3>
-        <div class="api-guide-item">
-            <strong>Gemini</strong>
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
-            <span>Gratis con limite generoso. Crea un proyecto y genera una clave.</span>
-        </div>
-        <div class="api-guide-item">
-            <strong>ElevenLabs</strong>
-            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io/settings/api-keys</a>
-            <span>Plan gratuito incluye 10 min/mes. Crea cuenta y copia la API Key.</span>
-        </div>
-        <div class="api-guide-item">
-            <strong>Hedra</strong>
-            <a href="https://www.hedra.com/app/settings" target="_blank" rel="noopener">hedra.com/app/settings</a>
-            <span>Character-3 para lip-sync. Crea cuenta y genera una API Key.</span>
-        </div>
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab" :class="{ 'active': tab === 'overview' }" @click="tab = 'overview'">Resumen</button>
+        <button class="tab" :class="{ 'active': tab === 'content' }" @click="tab = 'content'">Contenido</button>
+        <button class="tab" :class="{ 'active': tab === 'logs' }" @click="tab = 'logs'">Logs</button>
     </div>
-    {% endif %}
-</div>
-{% endif %}
 
-<!-- Info cards -->
-<div class="info-grid">
-    <div class="info-card">
-        <h3>Configuracion</h3>
-        <div class="info-row"><span class="info-label">Nicho</span><span class="info-value">{{ bot.niche }}</span></div>
-        <div class="info-row"><span class="info-label">Idioma</span><span class="info-value">{{ bot.language | upper }}</span></div>
-        <div class="info-row"><span class="info-label">Videos/dia</span><span class="info-value">{{ bot.videos_per_day }}</span></div>
-        <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ bot.video_provider | upper }}</span></div>
-        <div class="info-row"><span class="info-label">Duracion</span><span class="info-value">{{ bot.video_duration_seconds }}s</span></div>
-        {% if bot.story_arc_enabled %}
-        <div class="info-row"><span class="info-label">Arco Narrativo</span><span class="info-value">{{ bot.story_arc_chapters }} capitulos ({{ bot.story_arc_chapters * bot.video_duration_seconds }}s total)</span></div>
+    <!-- Tab: Overview -->
+    <div x-show="tab === 'overview'">
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>Configuracion</h3>
+                <div class="info-row"><span class="info-label">Nicho</span><span class="info-value">{{ bot.niche }}</span></div>
+                <div class="info-row"><span class="info-label">Idioma</span><span class="info-value">{{ bot.language | upper }}</span></div>
+                <div class="info-row"><span class="info-label">Videos/dia</span><span class="info-value">{{ bot.videos_per_day }}</span></div>
+                <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ bot.video_provider | replace("_", " ") | title }}</span></div>
+                <div class="info-row"><span class="info-label">Duracion</span><span class="info-value">{{ bot.video_duration_seconds }}s</span></div>
+                {% if bot.story_arc_enabled %}
+                <div class="info-row"><span class="info-label">Arco</span><span class="info-value">{{ bot.story_arc_chapters }} capitulos</span></div>
+                {% endif %}
+                <div class="info-row"><span class="info-label">Tendencias</span><span class="info-value">{{ "Si" if bot.use_trends else "No" }}</span></div>
+            </div>
+
+            <div class="info-card">
+                <h3>Descripcion</h3>
+                <p style="color:var(--color-text-secondary);font-size:var(--text-sm);line-height:1.6;">{{ bot.niche_description or "Sin descripcion" }}</p>
+                {% if bot.content_style %}
+                <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--color-separator);">
+                    <span class="text-xs text-tertiary font-semibold" style="text-transform:uppercase;letter-spacing:0.04em;">Estilo</span>
+                    <p style="font-size:var(--text-sm);margin-top:var(--space-1);color:var(--color-text-secondary);">{{ bot.content_style }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if bot.custom_prompts %}
+        <div class="card mb-6">
+            <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);">Prompts personalizados</h3>
+            <ol style="padding-left:var(--space-5);color:var(--color-text-secondary);font-size:var(--text-sm);line-height:1.8;">
+                {% for prompt in bot.custom_prompts %}
+                <li>{{ prompt }}</li>
+                {% endfor %}
+            </ol>
+        </div>
         {% endif %}
-        <div class="info-row"><span class="info-label">Tendencias</span><span class="info-value">{{ "Si" if bot.use_trends else "No" }}</span></div>
     </div>
 
-    <div class="info-card">
-        <h3>Descripcion</h3>
-        <p style="color: var(--gc-text-muted); font-size: 0.9rem; line-height: 1.6;">{{ bot.niche_description or "Sin descripcion" }}</p>
-        {% if bot.content_style %}
-        <div class="info-row" style="margin-top: 0.75rem; border-top: 1px solid var(--gc-surface-border); padding-top: 0.75rem;">
-            <span class="info-label">Estilo</span>
-            <span class="info-value">{{ bot.content_style }}</span>
+    <!-- Tab: Content -->
+    <div x-show="tab === 'content'" x-cloak>
+        {% if recent_content %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Titulo / Tema</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recent_content %}
+                <tr>
+                    <td>{{ item.trend_topic or item.script_prompt or "Sin tema" }}</td>
+                    <td><span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span></td>
+                    <td style="white-space:nowrap;">{{ item.created_at.strftime("%d/%m %H:%M") if item.created_at else "" }}</td>
+                    <td><a href="/content/{{ item.id }}" class="btn btn-ghost btn-sm">Ver</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="mt-4">
+            <a href="/bots/{{ bot.slug }}/content" class="btn btn-secondary btn-sm">Ver todo el contenido</a>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-10) var(--space-6);">
+            <div class="empty-state-icon">&#128249;</div>
+            <h2>Sin contenido</h2>
+            <p>Ejecuta el bot para empezar a generar contenido.</p>
         </div>
         {% endif %}
     </div>
+
+    <!-- Tab: Logs -->
+    <div x-show="tab === 'logs'" x-cloak>
+        {% if recent_logs %}
+        <div class="flex flex-col gap-2">
+            {% for log in recent_logs %}
+            <div class="card card-compact flex items-center gap-3" style="padding:var(--space-3) var(--space-4);">
+                <span class="log-{{ log.level | lower }}" style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;min-width:50px;">{{ log.level }}</span>
+                <span style="font-size:var(--text-sm);color:var(--color-text-secondary);flex:1;">{{ log.message }}</span>
+                <span style="font-size:var(--text-xs);color:var(--color-text-tertiary);white-space:nowrap;">{{ log.created_at.strftime("%d/%m %H:%M") if log.created_at else "" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-4">
+            <a href="/bots/{{ bot.slug }}/logs" class="btn btn-secondary btn-sm">Ver todos los logs</a>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-10) var(--space-6);">
+            <div class="empty-state-icon">&#128203;</div>
+            <h2>Sin logs</h2>
+            <p>Los logs apareceran cuando el bot empiece a generar contenido.</p>
+        </div>
+        {% endif %}
+    </div>
+
 </div>
-
-<!-- Action buttons -->
-<div class="action-bar">
-    <a href="/bots/{{ bot.slug }}/edit" class="btn-action primary">Editar</a>
-    <button
-        hx-post="/bots/{{ bot.slug }}/toggle"
-        hx-target="#action-result"
-        hx-swap="innerHTML"
-        class="btn-action btn-loading-trigger"
-    >
-        {% if bot.is_enabled %}Desactivar{% else %}Activar (genera {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}){% endif %}
-    </button>
-    {% if bot.story_arc_enabled %}
-    <button
-        hx-post="/bots/{{ bot.slug }}/run-arc"
-        hx-target="#action-result"
-        hx-swap="innerHTML"
-        class="btn-gradient btn-loading-trigger"
-        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
-        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
-    >
-        <span class="btn-text">Generar Arco Narrativo ({{ bot.story_arc_chapters }} caps)</span>
-        <span class="btn-spinner" style="display:none;">Generando arco...</span>
-    </button>
-    <button
-        hx-post="/bots/{{ bot.slug }}/run"
-        hx-target="#action-result"
-        hx-swap="innerHTML"
-        class="btn-action btn-loading-trigger"
-        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
-        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
-    >
-        <span class="btn-text">Ejecutar (1 video)</span>
-        <span class="btn-spinner" style="display:none;">Generando...</span>
-    </button>
-    {% else %}
-    <button
-        hx-post="/bots/{{ bot.slug }}/run"
-        hx-target="#action-result"
-        hx-swap="innerHTML"
-        class="btn-gradient btn-loading-trigger"
-        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
-        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
-    >
-        <span class="btn-text">Ejecutar ahora</span>
-        <span class="btn-spinner" style="display:none;">Generando...</span>
-    </button>
-    {% endif %}
-</div>
-<div id="action-result"></div>
-
-<!-- Navigation links -->
-<div class="action-bar">
-    <a href="/bots/{{ bot.slug }}/content" class="btn-action">Contenido generado</a>
-    <a href="/bots/{{ bot.slug }}/logs" class="btn-action">Logs del pipeline</a>
-</div>
-
-{% if bot.custom_prompts %}
-<details open>
-    <summary>Prompts personalizados ({{ bot.custom_prompts | length }})</summary>
-    <ol>
-        {% for prompt in bot.custom_prompts %}
-        <li>{{ prompt }}</li>
-        {% endfor %}
-    </ol>
-    <a href="/bots/{{ bot.slug }}/edit" class="btn-action" style="margin-top: 0.5rem; display: inline-block;">Editar prompts</a>
-</details>
-{% endif %}
-
-<!-- Danger zone -->
-<details class="danger-zone">
-    <summary>Zona peligrosa</summary>
-    <p>Eliminar este bot y todo su contenido asociado. Esta accion no se puede deshacer.</p>
-    <button
-        hx-post="/bots/{{ bot.slug }}/delete"
-        hx-confirm="Estas seguro de que quieres eliminar {{ bot.name }}? Esta accion no se puede deshacer."
-        class="btn-action danger"
-    >
-        Eliminar bot
-    </button>
-</details>
 {% endblock %}

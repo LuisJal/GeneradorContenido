@@ -15,6 +15,9 @@ logger = get_logger(__name__)
 ENCRYPTED_KEYS = {
     "gemini_api_key",
     "kling_api_key",
+    "kling_access_key",
+    "kling_secret_key",
+    "aiml_api_key",
     "telegram_bot_token",
 }
 
@@ -23,7 +26,10 @@ SETTING_DEFINITIONS: Dict[str, str] = {
     "gemini_api_key": "Clave API de Gemini (genera guiones y descripciones)",
     "google_cloud_project": "ID del proyecto Google Cloud (para Veo 3)",
     "google_application_credentials": "Ruta al archivo service account JSON (para Veo 3)",
-    "kling_api_key": "Clave API de Kling 3.0 (proveedor de video alternativo)",
+    "kling_access_key": "Access Key de Kling (API directa)",
+    "kling_secret_key": "Secret Key de Kling (API directa)",
+    "kling_api_key": "Clave API de Kling legacy (solo si no usas access/secret)",
+    "aiml_api_key": "Clave API de AIML (acceso economico a Kling V3)",
     "telegram_bot_token": "Token del bot de Telegram (notificaciones opcionales)",
 }
 

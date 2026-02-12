@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Application
     app_env: str = "development"
     app_secret_key: str = "change-me"
-    app_base_url: str = "http://localhost:8000"
+    app_base_url: str = "http://127.0.0.1:8000"
     database_url: str = f"sqlite+aiosqlite:///{BASE_DIR / 'generador.db'}"
 
     # Encryption

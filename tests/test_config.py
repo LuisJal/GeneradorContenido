@@ -13,7 +13,7 @@ def test_settings_loads_with_defaults():
         app_secret_key="test-secret",
     )
     assert s.app_env == "development"
-    assert s.app_base_url == "http://localhost:8000"
+    assert s.app_base_url == "http://127.0.0.1:8000"
     assert s.log_level == "INFO"
     assert s.is_development is True
 

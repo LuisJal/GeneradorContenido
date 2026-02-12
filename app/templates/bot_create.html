@@ -56,12 +56,13 @@
         <label for="video_provider">Proveedor de video</label>
         <select id="video_provider" name="video_provider">
             <option value="aiml_kling" selected>Kling V3 via AIML (3-15s, economico)</option>
-            <option value="veo3">Google Veo 3 (max 8s)</option>
+            <option value="veo3">Google Veo 3 (Scene Extension hasta 60s)</option>
             <option value="kling3">Kling 3.0 (directo)</option>
         </select>
 
         <label for="video_duration_seconds">Duracion del video (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="10" min="3" max="15">
+        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="10" min="3" max="60">
+        <small>Veo3: hasta 8s en un solo clip, o hasta 60s con Scene Extension (8s inicial + extensiones de 7s).</small>
 
         <label for="videos_per_day">Videos por dia</label>
         <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">

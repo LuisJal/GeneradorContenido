@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -18,8 +19,16 @@ logger = get_logger("integrations.veo_client")
 _POLL_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
 _POLL_INTERVAL_SECONDS: int = 15
 
-# Gemini API only supports these durations.
+# Valid single-call durations for the Gemini API.
 _GEMINI_API_VALID_DURATIONS = (4, 6, 8)
+
+# Scene Extension constants.
+# Max duration achievable in a single API call.
+_MAX_SINGLE_DURATION: int = 8
+# Each scene extension adds exactly 7 seconds.
+_EXTENSION_SECONDS: int = 7
+# Google allows up to 20 extensions (8 + 20*7 = 148s max).
+_MAX_EXTENSIONS: int = 20
 
 # Model names per authentication mode.
 _MODEL_VERTEX = "veo-3.1-generate-001"
@@ -85,9 +94,11 @@ class Veo3Client:
         prompt:
             Natural-language description of the desired video.
         duration:
-            Target video duration in seconds.  For Gemini API mode only
-            4, 6 or 8 are accepted; other values are clamped to the
-            nearest valid option.
+            Target video duration in seconds.  For single-call durations
+            (4, 6, 8) the API is called once.  For longer durations the
+            Scene Extension API is used: an initial 8 s clip is generated,
+            then iteratively extended (+7 s each) until the target is
+            reached.  The method blocks until the full chain completes.
         aspect_ratio:
             Aspect ratio string, e.g. ``"9:16"`` or ``"16:9"``.
 
@@ -95,10 +106,18 @@ class Veo3Client:
         -------
         str
             The long-running operation name / ID used for polling.
+            For extended videos this is the *last* operation in the chain
+            (already completed when returned).
         """
+        # For durations beyond the single-call max, use scene extension.
+        if duration > _MAX_SINGLE_DURATION:
+            return await self._generate_extended_video(prompt, duration, aspect_ratio)
+
         # Clamp duration for Gemini API mode.
         if self._mode == "gemini_api" and duration not in _GEMINI_API_VALID_DURATIONS:
-            clamped = min(_GEMINI_API_VALID_DURATIONS, key=lambda d: abs(d - duration))
+            clamped = min(
+                _GEMINI_API_VALID_DURATIONS, key=lambda d: abs(d - duration)
+            )
             logger.warning(
                 "Gemini API only supports durations %s; clamping %ss -> %ss",
                 _GEMINI_API_VALID_DURATIONS,
@@ -114,7 +133,7 @@ class Veo3Client:
             aspect_ratio,
         )
 
-        config_kwargs = {
+        config_kwargs: Dict[str, Any] = {
             "aspect_ratio": aspect_ratio,
             "duration_seconds": duration,
             "person_generation": "allow_all",
@@ -139,7 +158,152 @@ class Veo3Client:
         return operation_name
 
     # ------------------------------------------------------------------
-    # Polling
+    # Scene Extension (long videos)
+    # ------------------------------------------------------------------
+
+    async def _generate_extended_video(
+        self,
+        prompt: str,
+        target_duration: int,
+        aspect_ratio: str,
+    ) -> str:
+        """Generate a long video via initial clip + iterative scene extensions.
+
+        The Veo API limits a single call to 8 s.  Scene Extension appends
+        7 s per iteration by feeding the previous result back.  This method
+        blocks until the full chain is done or an unrecoverable error occurs.
+
+        Returns the operation name of the *last* successful step.
+        """
+        extensions_needed = min(
+            math.ceil((target_duration - _MAX_SINGLE_DURATION) / _EXTENSION_SECONDS),
+            _MAX_EXTENSIONS,
+        )
+        total_expected = _MAX_SINGLE_DURATION + extensions_needed * _EXTENSION_SECONDS
+
+        logger.info(
+            "Extended video: target=%ds, plan: %ds initial + %d extensions "
+            "(+%ds each) = ~%ds total",
+            target_duration,
+            _MAX_SINGLE_DURATION,
+            extensions_needed,
+            _EXTENSION_SECONDS,
+            total_expected,
+        )
+
+        # --- Step 1: initial 8 s clip ------------------------------------
+        init_config_kwargs: Dict[str, Any] = {
+            "aspect_ratio": aspect_ratio,
+            "duration_seconds": _MAX_SINGLE_DURATION,
+            "person_generation": "allow_all",
+            "number_of_videos": 1,
+        }
+        if self._mode == "vertex":
+            init_config_kwargs["generate_audio"] = True
+
+        operation = await asyncio.to_thread(
+            self._client.models.generate_videos,
+            model=self._model,
+            prompt=prompt,
+            config=GenerateVideosConfig(**init_config_kwargs),
+        )
+        logger.info("Initial %ds clip submitted: %s", _MAX_SINGLE_DURATION, operation.name)
+
+        completed_op = await self._poll_operation_until_done(operation.name)
+        if completed_op is None:
+            # Initial generation failed -- return its name so poll_status
+            # reports the error to the pipeline.
+            return operation.name
+
+        video_ref = completed_op.response.generated_videos[0].video
+        last_op_name: str = operation.name
+
+        # --- Step 2: iterative scene extensions ---------------------------
+        for i in range(1, extensions_needed + 1):
+            logger.info("Scene extension %d/%d starting...", i, extensions_needed)
+
+            ext_config_kwargs: Dict[str, Any] = {
+                "number_of_videos": 1,
+                "person_generation": "allow_all",
+            }
+            if self._mode == "vertex":
+                ext_config_kwargs["generate_audio"] = True
+
+            ext_operation = await asyncio.to_thread(
+                self._client.models.generate_videos,
+                model=self._model,
+                prompt=prompt,
+                video=video_ref,
+                config=GenerateVideosConfig(**ext_config_kwargs),
+            )
+            logger.info(
+                "Extension %d/%d submitted: %s", i, extensions_needed, ext_operation.name
+            )
+
+            completed_ext = await self._poll_operation_until_done(ext_operation.name)
+            if completed_ext is None:
+                current_secs = _MAX_SINGLE_DURATION + (i - 1) * _EXTENSION_SECONDS
+                logger.warning(
+                    "Extension %d/%d failed. Returning partial video (~%ds).",
+                    i,
+                    extensions_needed,
+                    current_secs,
+                )
+                break
+
+            video_ref = completed_ext.response.generated_videos[0].video
+            last_op_name = ext_operation.name
+
+            # Brief pause between extensions to be gentle on rate limits.
+            if i < extensions_needed:
+                await asyncio.sleep(3)
+
+        logger.info("Extended video generation complete: %s", last_op_name)
+        return last_op_name
+
+    async def _poll_operation_until_done(
+        self,
+        operation_name: str,
+        timeout: int = _POLL_TIMEOUT_SECONDS,
+    ) -> Optional[Any]:
+        """Poll an operation until done, returning the raw SDK operation.
+
+        Returns ``None`` on failure or timeout so callers can decide whether
+        to abort or return a partial result.
+        """
+        start = time.monotonic()
+
+        while time.monotonic() - start < timeout:
+            op_ref = GenerateVideosOperation(name=operation_name)
+            operation = await asyncio.to_thread(
+                self._client.operations.get,
+                operation=op_ref,
+            )
+
+            if operation.done:
+                if operation.error is not None:
+                    logger.error(
+                        "Operation failed: %s -- %s", operation_name, operation.error
+                    )
+                    return None
+
+                resp = operation.response
+                if resp and hasattr(resp, "generated_videos") and resp.generated_videos:
+                    logger.info("Operation completed: %s", operation_name)
+                    return operation
+
+                logger.error("Operation done but no video: %s", operation_name)
+                return None
+
+            elapsed = int(time.monotonic() - start)
+            logger.debug("Operation %s still running (%ds)", operation_name, elapsed)
+            await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+
+        logger.error("Operation timed out after %ds: %s", timeout, operation_name)
+        return None
+
+    # ------------------------------------------------------------------
+    # Polling (public)
     # ------------------------------------------------------------------
 
     async def poll_status(

@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
+import json
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -13,29 +17,108 @@ from app.utils.logging_config import get_logger
 
 logger = get_logger("integrations.kling_client")
 
-_KLING_BASE_URL = "https://api.klingapi.com"
+_KLING_BASE_URL = "https://api.klingai.com"
 
 # Polling defaults
 _POLL_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
 _POLL_INTERVAL_SECONDS: int = 10
 
+# JWT token lifetime (30 minutes)
+_JWT_LIFETIME_SECONDS: int = 1800
+
+
+def _b64url(data: bytes) -> str:
+    """Base64url-encode *data* without padding."""
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _generate_jwt(access_key: str, secret_key: str) -> str:
+    """Generate a JWT token for the Kling API (HS256).
+
+    The Kling API expects:
+    - Header: {"alg": "HS256", "typ": "JWT"}
+    - Payload: {"iss": access_key, "exp": now+1800, "nbf": now-5, "iat": now}
+    - Signed with secret_key via HMAC-SHA256
+    """
+    now = int(time.time())
+    header = _b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
+    payload = _b64url(json.dumps({
+        "iss": access_key,
+        "exp": now + _JWT_LIFETIME_SECONDS,
+        "nbf": now - 5,
+        "iat": now,
+    }, separators=(",", ":")).encode())
+
+    signing_input = f"{header}.{payload}"
+    signature = _b64url(
+        hmac.new(secret_key.encode(), signing_input.encode(), hashlib.sha256).digest()
+    )
+    return f"{signing_input}.{signature}"
+
 
 class KlingClient(BaseAPIClient):
     """Client for Kling 3.0 text-to-video generation via HTTP API.
 
+    Supports two auth modes:
+    - **JWT auth** (recommended): pass ``access_key`` + ``secret_key``
+    - **Legacy bearer**: pass ``api_key``
+
     Inherits retry / rate-limit logic from :class:`BaseAPIClient`.
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str = "",
+        access_key: str = "",
+        secret_key: str = "",
+    ) -> None:
+        if access_key and secret_key:
+            token = _generate_jwt(access_key, secret_key)
+            self._auth_mode = "jwt"
+            self._access_key = access_key
+            self._secret_key = secret_key
+        elif api_key:
+            token = api_key
+            self._auth_mode = "legacy"
+            self._access_key = ""
+            self._secret_key = ""
+        else:
+            raise ValueError("Provide either access_key+secret_key or api_key")
+
         super().__init__(
             base_url=_KLING_BASE_URL,
             timeout=60.0,
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             },
         )
-        logger.info("KlingClient initialised (base_url=%s)", _KLING_BASE_URL)
+        self._token_created_at = time.monotonic()
+        logger.info(
+            "KlingClient initialised (base_url=%s, auth=%s)",
+            _KLING_BASE_URL,
+            self._auth_mode,
+        )
+
+    def _refresh_token_if_needed(self) -> None:
+        """Regenerate JWT if close to expiry (refresh at 25 min mark)."""
+        if self._auth_mode != "jwt":
+            return
+        elapsed = time.monotonic() - self._token_created_at
+        if elapsed > (_JWT_LIFETIME_SECONDS - 300):  # refresh 5 min before expiry
+            token = _generate_jwt(self._access_key, self._secret_key)
+            self._headers["Authorization"] = f"Bearer {token}"
+            # Force client recreation so new headers take effect
+            if self._client is not None and not self._client.is_closed:
+                import asyncio
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self._client.aclose())
+                except RuntimeError:
+                    pass
+                self._client = None
+            self._token_created_at = time.monotonic()
+            logger.debug("JWT token refreshed")
 
     # ------------------------------------------------------------------
     # Video generation
@@ -63,6 +146,7 @@ class KlingClient(BaseAPIClient):
         str
             The ``task_id`` used for polling status.
         """
+        self._refresh_token_if_needed()
         logger.info(
             "Submitting Kling 3.0 video generation (duration=%ss, ratio=%s)",
             duration,
@@ -72,9 +156,8 @@ class KlingClient(BaseAPIClient):
         payload: Dict[str, Any] = {
             "model": "kling-v3",
             "prompt": prompt,
-            "duration": duration,
+            "duration": str(duration),
             "aspect_ratio": aspect_ratio,
-            "mode": "quality",
         }
 
         data = await self.post("/v1/videos/text2video", json=payload)
@@ -117,6 +200,7 @@ class KlingClient(BaseAPIClient):
         start = time.monotonic()
 
         while time.monotonic() - start < timeout:
+            self._refresh_token_if_needed()
             data = await self.get(f"/v1/videos/text2video/{task_id}")
 
             task_data = data.get("data", {})

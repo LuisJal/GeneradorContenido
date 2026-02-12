@@ -13,6 +13,15 @@ from app.utils.logging_config import get_logger
 
 logger = get_logger("services.video_generator")
 
+
+def _settings_db_session():
+    """Create a short-lived sync Session for reading global settings."""
+    from sqlalchemy.orm import Session as OrmSession
+
+    from app.database import sync_engine
+    return OrmSession(sync_engine)
+
+
 # ---------------------------------------------------------------------------
 # Provider factory
 # ---------------------------------------------------------------------------
@@ -22,44 +31,80 @@ def _get_veo3_client(bot: Bot) -> Veo3Client:
 
     Prefers Gemini API key (simpler) over Vertex AI project.
     """
-    # Try Gemini API key first (bot-level override or global).
+    from app.services.settings_manager import get_setting
     from app.utils.encryption import FieldEncryptor
+
+    # Try Gemini API key first (bot-level override or global).
     api_key = None
     if bot.gemini_api_key_encrypted and settings.encryption_key:
         enc = FieldEncryptor(settings.encryption_key)
         api_key = enc.decrypt(bot.gemini_api_key_encrypted)
     if not api_key:
-        api_key = settings.gemini_api_key
+        db = _settings_db_session()
+        try:
+            api_key = get_setting(db, "gemini_api_key")
+        finally:
+            db.close()
 
     if api_key:
         return Veo3Client(api_key=api_key)
 
     # Fall back to Vertex AI.
-    project_id = settings.google_cloud_project
+    db = _settings_db_session()
+    try:
+        project_id = get_setting(db, "google_cloud_project")
+    finally:
+        db.close()
+
     if not project_id:
         raise ValueError(
             "No video generation credentials configured. "
-            "Set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT in .env"
+            "Set Gemini API Key or Google Cloud Project in Settings"
         )
     return Veo3Client(project_id=project_id)
 
 
 def _get_kling_client(bot: Bot) -> KlingClient:
-    """Build a :class:`KlingClient` using bot / global settings."""
+    """Build a :class:`KlingClient` using bot / global settings.
+
+    Prefers JWT auth (access_key + secret_key) over legacy api_key.
+    Keys are read from DB settings first, then .env fallback.
+    """
+    from app.services.settings_manager import get_setting
+
+    db = _settings_db_session()
+    try:
+        access_key = get_setting(db, "kling_access_key")
+        secret_key = get_setting(db, "kling_secret_key")
+    finally:
+        db.close()
+
+    if access_key and secret_key:
+        return KlingClient(access_key=access_key, secret_key=secret_key)
+
+    # Fallback to legacy api_key
     api_key = settings.kling_api_key
     if not api_key:
         raise ValueError(
-            "Kling API key is not configured (set KLING_API_KEY in .env)"
+            "Kling credentials not configured. Set Access Key + Secret Key "
+            "in Settings, or KLING_API_KEY in .env"
         )
     return KlingClient(api_key=api_key)
 
 
 def _get_aiml_kling_client(bot: Bot) -> AimlKlingClient:
     """Build an :class:`AimlKlingClient` using global settings."""
-    api_key = settings.aiml_api_key
+    from app.services.settings_manager import get_setting
+
+    db = _settings_db_session()
+    try:
+        api_key = get_setting(db, "aiml_api_key")
+    finally:
+        db.close()
+
     if not api_key:
         raise ValueError(
-            "AIML API key is not configured (set AIML_API_KEY in .env)"
+            "AIML API key is not configured. Set it in Settings or AIML_API_KEY in .env"
         )
     return AimlKlingClient(api_key=api_key)
 

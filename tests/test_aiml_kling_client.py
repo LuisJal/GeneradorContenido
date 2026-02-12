@@ -169,11 +169,13 @@ def test_get_client_aiml_kling():
     bot = MagicMock()
     bot.video_provider = "aiml_kling"
 
-    with patch("app.services.video_generator.settings") as mock_settings:
-        mock_settings.aiml_api_key = "test-aiml-key"
-        with patch("app.services.video_generator.AimlKlingClient") as aiml_cls:
-            _get_client(bot)
-            aiml_cls.assert_called_once_with(api_key="test-aiml-key")
+    with patch("app.services.video_generator._settings_db_session") as mock_db:
+        mock_session = MagicMock()
+        mock_db.return_value = mock_session
+        with patch("app.services.settings_manager.get_setting", return_value="test-aiml-key"):
+            with patch("app.services.video_generator.AimlKlingClient") as aiml_cls:
+                _get_client(bot)
+                aiml_cls.assert_called_once_with(api_key="test-aiml-key")
 
 
 def test_get_client_aiml_kling_no_key():
@@ -183,7 +185,9 @@ def test_get_client_aiml_kling_no_key():
     bot = MagicMock()
     bot.video_provider = "aiml_kling"
 
-    with patch("app.services.video_generator.settings") as mock_settings:
-        mock_settings.aiml_api_key = ""
-        with pytest.raises(ValueError, match="AIML_API_KEY"):
-            _get_client(bot)
+    with patch("app.services.video_generator._settings_db_session") as mock_db:
+        mock_session = MagicMock()
+        mock_db.return_value = mock_session
+        with patch("app.services.settings_manager.get_setting", return_value=""):
+            with pytest.raises(ValueError, match="AIML"):
+                _get_client(bot)

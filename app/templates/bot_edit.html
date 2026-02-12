@@ -40,6 +40,24 @@
     </fieldset>
 
     <fieldset>
+        <legend>Prompts Personalizados</legend>
+        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Ideas de contenido que el bot usara como base para generar guiones.
+            Puedes agregar, editar o eliminar prompts en cualquier momento.
+        </p>
+
+        <div id="prompts-container">
+            {% for prompt in (bot.custom_prompts or []) %}
+            <div class="prompt-row">
+                <input type="text" name="custom_prompt" class="prompt-input" value="{{ prompt }}" placeholder="Describe una idea de contenido...">
+                <button type="button" class="prompt-remove" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn-action" onclick="addPrompt()" style="margin-top: 0.5rem;">+ Agregar prompt</button>
+    </fieldset>
+
+    <fieldset>
         <legend>Video</legend>
 
         <label for="video_provider">Proveedor</label>
@@ -255,6 +273,15 @@
             var provider = document.getElementById('video_provider').value;
             var fieldset = document.getElementById('character-fieldset');
             fieldset.style.display = (provider === 'talking_head') ? '' : 'none';
+        }
+        function addPrompt() {
+            var container = document.getElementById('prompts-container');
+            var row = document.createElement('div');
+            row.className = 'prompt-row';
+            row.innerHTML = '<input type="text" name="custom_prompt" class="prompt-input" placeholder="Describe una idea de contenido...">'
+                + '<button type="button" class="prompt-remove" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>';
+            container.appendChild(row);
+            row.querySelector('input').focus();
         }
         function toggleTiktokFields() {
             var sel = document.getElementById('cred-platform');

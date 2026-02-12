@@ -50,6 +50,7 @@ def create_bot(db: Session, data: BotCreate) -> Bot:
         niche=data.niche or template_data.get("niche", ""),
         niche_description=data.niche_description or template_data.get("niche_description", ""),
         content_style=data.content_style or template_data.get("content_style", ""),
+        brand_style=data.brand_style or template_data.get("brand_style", ""),
         language=data.language or template_data.get("language", "es"),
         videos_per_day=data.videos_per_day,
         posting_schedule=data.posting_schedule.model_dump() if data.posting_schedule else template_data.get(

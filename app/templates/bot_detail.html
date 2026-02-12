@@ -21,6 +21,135 @@
 </div>
 {% endif %}
 
+<!-- ===== SETUP STATUS (talking_head bots) ===== -->
+{% if setup_status %}
+<div class="setup-card">
+    <div class="setup-card-header">
+        {% if setup_status.all_ready %}
+        <span class="setup-badge setup-badge-ready">Listo para generar</span>
+        {% else %}
+        <span class="setup-badge setup-badge-pending">Configuracion pendiente</span>
+        {% endif %}
+        <h2>Estado de configuracion</h2>
+        <p>Completa todos los pasos para empezar a generar videos.</p>
+    </div>
+
+    <ul class="setup-checklist">
+        <!-- API Keys -->
+        <li class="setup-item {{ 'setup-ok' if setup_status.gemini_key else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.gemini_key else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">Gemini API Key</span>
+                <span class="setup-hint">Genera guiones y descripciones con IA</span>
+            </div>
+            {% if not setup_status.gemini_key %}
+            <a href="/settings" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+        <li class="setup-item {{ 'setup-ok' if setup_status.elevenlabs_key else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.elevenlabs_key else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">ElevenLabs API Key</span>
+                <span class="setup-hint">Convierte el guion en audio con voz realista</span>
+            </div>
+            {% if not setup_status.elevenlabs_key %}
+            <a href="/settings" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+        <li class="setup-item {{ 'setup-ok' if setup_status.hedra_key else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.hedra_key else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">Hedra API Key</span>
+                <span class="setup-hint">Genera video con lip-sync (Character-3)</span>
+            </div>
+            {% if not setup_status.hedra_key %}
+            <a href="/settings" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+
+        <!-- Bot character config -->
+        <li class="setup-item {{ 'setup-ok' if setup_status.face_url else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.face_url else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">Imagen de referencia (cara)</span>
+                <span class="setup-hint">Foto frontal del personaje para lip-sync</span>
+            </div>
+            {% if not setup_status.face_url %}
+            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+        <li class="setup-item {{ 'setup-ok' if setup_status.voice_id else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.voice_id else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">ElevenLabs Voice ID</span>
+                <span class="setup-hint">ID de la voz asignada al personaje</span>
+            </div>
+            {% if not setup_status.voice_id %}
+            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+        <li class="setup-item {{ 'setup-ok' if setup_status.personality else 'setup-missing' }}">
+            <span class="setup-icon">{{ '&#10003;' if setup_status.personality else '&#9888;' }}</span>
+            <div class="setup-info">
+                <span class="setup-label">Personalidad del personaje</span>
+                <span class="setup-hint">Define el tono y estilo de los guiones</span>
+            </div>
+            {% if not setup_status.personality %}
+            <a href="/bots/{{ bot.slug }}/edit" class="setup-action">Configurar</a>
+            {% endif %}
+        </li>
+    </ul>
+
+    <!-- Character preview card -->
+    {% if setup_status.face_url or setup_status.voice_id or setup_status.personality %}
+    <div class="character-preview">
+        <h3>Personaje</h3>
+        <div class="character-grid">
+            {% if bot.character_face_url %}
+            <div class="character-face">
+                <img src="{{ bot.character_face_url }}" alt="Cara del personaje"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="character-face-placeholder" style="display:none;">Sin imagen</div>
+            </div>
+            {% endif %}
+            <div class="character-details">
+                {% if bot.character_voice_id %}
+                <div class="info-row"><span class="info-label">Voice ID</span><span class="info-value">{{ bot.character_voice_id }}</span></div>
+                {% endif %}
+                {% if bot.character_personality %}
+                <p style="color: var(--gc-text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0.5rem 0 0;">
+                    {{ bot.character_personality[:200] }}{{ '...' if bot.character_personality|length > 200 }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- API keys guide -->
+    {% if not setup_status.all_ready %}
+    <div class="api-guide">
+        <h3>Donde obtener las claves</h3>
+        <div class="api-guide-item">
+            <strong>Gemini</strong>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
+            <span>Gratis con limite generoso. Crea un proyecto y genera una clave.</span>
+        </div>
+        <div class="api-guide-item">
+            <strong>ElevenLabs</strong>
+            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io/settings/api-keys</a>
+            <span>Plan gratuito incluye 10 min/mes. Crea cuenta y copia la API Key.</span>
+        </div>
+        <div class="api-guide-item">
+            <strong>Hedra</strong>
+            <a href="https://www.hedra.com/app/settings" target="_blank" rel="noopener">hedra.com/app/settings</a>
+            <span>Character-3 para lip-sync. Crea cuenta y genera una API Key.</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Info cards -->
 <div class="info-grid">
     <div class="info-card">
@@ -66,6 +195,7 @@
         hx-swap="innerHTML"
         class="btn-gradient btn-loading-trigger"
         style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
+        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
     >
         <span class="btn-text">Generar Arco Narrativo ({{ bot.story_arc_chapters }} caps)</span>
         <span class="btn-spinner" style="display:none;">Generando arco...</span>
@@ -76,6 +206,7 @@
         hx-swap="innerHTML"
         class="btn-action btn-loading-trigger"
         style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
+        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
     >
         <span class="btn-text">Ejecutar (1 video)</span>
         <span class="btn-spinner" style="display:none;">Generando...</span>
@@ -87,6 +218,7 @@
         hx-swap="innerHTML"
         class="btn-gradient btn-loading-trigger"
         style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
+        {% if setup_status and not setup_status.all_ready %}disabled title="Completa la configuracion primero"{% endif %}
     >
         <span class="btn-text">Ejecutar ahora</span>
         <span class="btn-spinner" style="display:none;">Generando...</span>
@@ -102,13 +234,14 @@
 </div>
 
 {% if bot.custom_prompts %}
-<details>
-    <summary>Prompts personalizados</summary>
+<details open>
+    <summary>Prompts personalizados ({{ bot.custom_prompts | length }})</summary>
     <ol>
         {% for prompt in bot.custom_prompts %}
         <li>{{ prompt }}</li>
         {% endfor %}
     </ol>
+    <a href="/bots/{{ bot.slug }}/edit" class="btn-action" style="margin-top: 0.5rem; display: inline-block;">Editar prompts</a>
 </details>
 {% endif %}
 

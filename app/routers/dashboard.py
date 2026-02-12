@@ -164,9 +164,26 @@ async def bot_detail(request: Request, slug: str, db: Session = Depends(get_db))
         ContentItem.bot_id == bot.id,
         ContentItem.status == ContentStatus.PENDING_APPROVAL.value,
     ).count()
+
+    # Build setup status for talking_head bots
+    setup_status = None
+    if bot.video_provider == "talking_head":
+        all_settings = get_all_settings(db)
+        checks = {
+            "gemini_key": bool(all_settings.get("gemini_api_key")),
+            "elevenlabs_key": bool(all_settings.get("elevenlabs_api_key")),
+            "hedra_key": bool(all_settings.get("hedra_api_key")),
+            "face_url": bool(bot.character_face_url),
+            "voice_id": bool(bot.character_voice_id),
+            "personality": bool(bot.character_personality),
+        }
+        checks["all_ready"] = all(checks.values())
+        setup_status = checks
+
     return templates.TemplateResponse(request, "bot_detail.html", {
         "bot": bot,
         "pending_count": pending_count,
+        "setup_status": setup_status,
     })
 
 
@@ -186,49 +203,34 @@ async def bot_edit_form(request: Request, slug: str, db: Session = Depends(get_d
 
 
 @router.post("/bots/{slug}/edit")
-async def bot_edit_submit(
-    request: Request,
-    slug: str,
-    db: Session = Depends(get_db),
-    niche_description: str = Form(""),
-    content_style: str = Form(""),
-    brand_style: str = Form(""),
-    language: str = Form("es"),
-    videos_per_day: int = Form(1),
-    schedule_times: str = Form("09:00"),
-    schedule_timezone: str = Form("Europe/Madrid"),
-    use_trends: Optional[str] = Form(None),
-    video_provider: str = Form("veo3"),
-    video_duration_seconds: int = Form(15),
-    contact_email: str = Form(""),
-    script_system_prompt: str = Form(""),
-    character_face_url: str = Form(""),
-    character_voice_id: str = Form(""),
-    character_personality: str = Form(""),
-    story_arc_enabled: Optional[str] = Form(None),
-    story_arc_chapters: int = Form(3),
-):
+async def bot_edit_submit(request: Request, slug: str, db: Session = Depends(get_db)):
+    form = await request.form()
     try:
+        # Parse custom prompts from multi-value form field
+        custom_prompts = [p.strip() for p in form.getlist("custom_prompt") if p.strip()]
+
+        schedule_times = form.get("schedule_times", "09:00")
         data = BotUpdate(
-            niche_description=niche_description or None,
-            content_style=content_style or None,
-            brand_style=brand_style or None,
-            language=language,
-            videos_per_day=videos_per_day,
+            niche_description=form.get("niche_description") or None,
+            content_style=form.get("content_style") or None,
+            brand_style=form.get("brand_style") or None,
+            language=form.get("language", "es"),
+            videos_per_day=int(form.get("videos_per_day", 1)),
             posting_schedule=PostingSchedule(
                 times=[t.strip() for t in schedule_times.split(",")],
-                timezone=schedule_timezone,
+                timezone=form.get("schedule_timezone", "Europe/Madrid"),
             ),
-            use_trends=use_trends is not None,
-            video_provider=video_provider,
-            video_duration_seconds=video_duration_seconds,
-            contact_email=contact_email or None,
-            script_system_prompt=script_system_prompt or None,
-            character_face_url=character_face_url or None,
-            character_voice_id=character_voice_id or None,
-            character_personality=character_personality or None,
-            story_arc_enabled=story_arc_enabled is not None,
-            story_arc_chapters=story_arc_chapters,
+            use_trends=form.get("use_trends") is not None,
+            video_provider=form.get("video_provider", "veo3"),
+            video_duration_seconds=int(form.get("video_duration_seconds", 15)),
+            contact_email=form.get("contact_email") or None,
+            script_system_prompt=form.get("script_system_prompt") or None,
+            character_face_url=form.get("character_face_url") or None,
+            character_voice_id=form.get("character_voice_id") or None,
+            character_personality=form.get("character_personality") or None,
+            story_arc_enabled=form.get("story_arc_enabled") is not None,
+            story_arc_chapters=int(form.get("story_arc_chapters", 3)),
+            custom_prompts=custom_prompts,
         )
         bot_manager.update_bot(db, slug, data)
         return RedirectResponse(url=f"/bots/{slug}", status_code=303)

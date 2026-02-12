@@ -23,7 +23,7 @@ class BotCreate(BaseModel):
     use_trends: bool = True
     custom_prompts: List[str] = Field(default_factory=list)
     video_provider: str = Field(default="veo3", pattern="^(veo3|kling3|aiml_kling|talking_head)$")
-    video_duration_seconds: int = Field(default=15, ge=5, le=60)
+    video_duration_seconds: int = Field(default=15, ge=3, le=60)
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-2.5-flash"
     telegram_chat_id: Optional[str] = None

@@ -3,20 +3,20 @@
 {% block title %}YouTube OAuth - GeneradorContenido{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Autorizacion de YouTube</h1>
+<div class="empty-state" style="padding:var(--space-12) var(--space-6);">
+    {% if success %}
+    <div class="empty-state-icon" style="font-size:48px;">&#9989;</div>
+    <h2>YouTube conectado</h2>
+    <p>{{ message }}</p>
+    <div class="flex items-center gap-3" style="margin-top:var(--space-4);justify-content:center;">
+        <a href="/bots/{{ bot_slug }}/edit" class="btn btn-primary">Volver a editar bot</a>
+        <a href="/" class="btn btn-secondary">Dashboard</a>
+    </div>
+    {% else %}
+    <div class="empty-state-icon" style="font-size:48px;">&#10060;</div>
+    <h2>Error de autorizacion</h2>
+    <p>{{ message }}</p>
+    <a href="/" class="btn btn-secondary" style="margin-top:var(--space-4);">Volver al Dashboard</a>
+    {% endif %}
 </div>
-
-{% if success %}
-<div class="flash-success">{{ message }}</div>
-<div class="action-bar">
-    <a href="/bots/{{ bot_slug }}/edit" class="btn-gradient">Volver a editar bot</a>
-    <a href="/" class="btn-action">Ir al Dashboard</a>
-</div>
-{% else %}
-<div class="flash-error">{{ message }}</div>
-<div class="action-bar">
-    <a href="/" class="btn-action">Volver al Dashboard</a>
-</div>
-{% endif %}
 {% endblock %}

@@ -3,9 +3,10 @@
 {% block title %}No encontrado - GeneradorContenido{% endblock %}
 
 {% block content %}
-<article>
-    <header><h1>404 - No encontrado</h1></header>
-    <p>La pagina que buscas no existe.</p>
-    <a href="/" role="button">Volver al dashboard</a>
-</article>
+<div class="empty-state" style="padding:var(--space-12) var(--space-6);">
+    <div class="empty-state-icon" style="font-size:64px;">&#128533;</div>
+    <h2 style="font-size:var(--text-2xl);">404</h2>
+    <p>La pagina que buscas no existe o fue eliminada.</p>
+    <a href="/" class="btn btn-primary" style="margin-top:var(--space-4);">Volver al dashboard</a>
+</div>
 {% endblock %}

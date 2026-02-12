@@ -2,38 +2,54 @@
 
 {% block title %}Logs - {{ bot.name }}{% endblock %}
 
-{% block content %}
-<hgroup>
-    <h1>Logs de {{ bot.name }}</h1>
-    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
-</hgroup>
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <a href="/bots/{{ bot.slug }}">{{ bot.name }}</a>
+    <span class="separator">/</span>
+    <span class="current">Logs</span>
+</div>
+{% endblock %}
 
-{% if logs %}
-<table>
-    <thead>
-        <tr>
-            <th>Fecha</th>
-            <th>Nivel</th>
-            <th>Etapa</th>
-            <th>Contenido</th>
-            <th>Mensaje</th>
-        </tr>
-    </thead>
-    <tbody>
+{% block content %}
+<div x-data="{ filter: 'all' }">
+    <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-3);">
+        <h1 style="margin:0;font-size:var(--text-xl);">Logs de {{ bot.name }}</h1>
+        <a href="/bots/{{ bot.slug }}" class="btn btn-secondary btn-sm">Volver al bot</a>
+    </div>
+
+    {% if logs %}
+    <!-- Level filter -->
+    <div class="filter-nav" style="margin-bottom:var(--space-5);">
+        <button class="filter-btn" :class="{ 'active': filter === 'all' }" @click="filter = 'all'">Todos</button>
+        <button class="filter-btn" :class="{ 'active': filter === 'error' }" @click="filter = 'error'">Error</button>
+        <button class="filter-btn" :class="{ 'active': filter === 'warning' }" @click="filter = 'warning'">Warning</button>
+        <button class="filter-btn" :class="{ 'active': filter === 'info' }" @click="filter = 'info'">Info</button>
+    </div>
+
+    <div class="flex flex-col gap-2">
         {% for log in logs %}
-        <tr class="log-{{ log.level|lower }}">
-            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else "-" }}</td>
-            <td><span class="log-level-{{ log.level|lower }}">{{ log.level }}</span></td>
-            <td>{{ log.stage }}</td>
-            <td>{{ log.content_id or "-" }}</td>
-            <td>{{ log.message[:100] }}{% if log.message|length > 100 %}...{% endif %}</td>
-        </tr>
+        <div class="log-card log-card-{{ log.level | lower }}"
+             x-show="filter === 'all' || filter === '{{ log.level | lower }}'">
+            <div class="log-card-header">
+                <span class="log-level log-{{ log.level | lower }}">{{ log.level }}</span>
+                <span class="log-stage">{{ log.stage }}</span>
+                {% if log.content_id %}
+                <span style="color:var(--color-text-tertiary);font-size:var(--text-xs);">#{{ log.content_id }}</span>
+                {% endif %}
+                <span class="log-time">{{ log.created_at.strftime('%d/%m %H:%M:%S') if log.created_at else "" }}</span>
+            </div>
+            <div class="log-card-message">{{ log.message }}</div>
+        </div>
         {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<article>
-    <p>No hay logs todavia para este bot.</p>
-</article>
-{% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:var(--space-10) var(--space-6);">
+        <div class="empty-state-icon">&#128203;</div>
+        <h2>No hay logs</h2>
+        <p>Los logs apareceran cuando el bot empiece a generar contenido.</p>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

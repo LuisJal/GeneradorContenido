@@ -56,6 +56,10 @@ class Bot(Base):
     character_voice_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     character_personality: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Production
+    production_mode: Mapped[str] = mapped_column(String(20), default="standard")
+    production_config: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
+
     # Story arc
     story_arc_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     story_arc_chapters: Mapped[int] = mapped_column(Integer, default=3)

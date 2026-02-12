@@ -15,6 +15,23 @@ from app.config import settings
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "bot_templates"
 
 
+def _sync_production_config_to_legacy(bot: Bot) -> None:
+    """Sync first character from production_config to legacy character_* columns."""
+    config = bot.production_config
+    if not config or not isinstance(config, dict):
+        return
+    characters = config.get("characters", [])
+    if not characters:
+        return
+    first = characters[0]
+    if first.get("face_url"):
+        bot.character_face_url = first["face_url"]
+    if first.get("voice_id"):
+        bot.character_voice_id = first["voice_id"]
+    if first.get("personality"):
+        bot.character_personality = first["personality"]
+
+
 def _get_encryptor() -> FieldEncryptor:
     return FieldEncryptor(settings.encryption_key)
 
@@ -70,6 +87,8 @@ def create_bot(db: Session, data: BotCreate) -> Bot:
         character_personality=data.character_personality or template_data.get("character_personality"),
         story_arc_enabled=data.story_arc_enabled,
         story_arc_chapters=data.story_arc_chapters,
+        production_mode=data.production_mode or template_data.get("production_mode", "standard"),
+        production_config=data.production_config or template_data.get("production_config", {}),
     )
 
     # Encrypt API key if provided
@@ -122,6 +141,9 @@ def update_bot(db: Session, slug: str, data: BotUpdate) -> Optional[Bot]:
     for field, value in update_data.items():
         if value is not None and hasattr(bot, field):
             setattr(bot, field, value)
+
+    # Sync first character from production_config to legacy fields
+    _sync_production_config_to_legacy(bot)
 
     db.commit()
     db.refresh(bot)

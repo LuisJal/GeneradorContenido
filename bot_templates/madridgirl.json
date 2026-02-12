@@ -11,6 +11,31 @@
     "video_duration_seconds": 30,
     "gemini_model": "gemini-2.5-flash",
     "character_personality": "Muy madridista, atractiva y graciosa. Picara con humor inteligente sin perder sensualidad moderada. Sabe mucho de futbol y no tiene miedo de opinar fuerte. Usa expresiones coloquiales madrilenas. Apasionada cuando habla del Madrid, ironica cuando habla de rivales. Nunca es vulgar, siempre con clase pero cercana.",
+    "production_mode": "talking_head",
+    "production_config": {
+        "characters": [
+            {
+                "name": "La Chica del Bernabeu",
+                "role": "protagonist",
+                "visual_description": "Mujer rubia joven (~25 anos), piel clara, ojos expresivos, rasgos mediterraneos. Siempre la misma cara y cuerpo para consistencia total entre videos.",
+                "personality": "Muy madridista, atractiva y graciosa. Picara con humor inteligente. Sabe mucho de futbol y no tiene miedo de opinar fuerte.",
+                "clothing": "Camiseta blanca del Real Madrid o bufanda madridista. Estetica Instagram-influencer pero futbolera.",
+                "distinguishing_features": "Sonrisa picara, gesticula mucho al hablar, expresiones faciales exageradas de sorpresa e indignacion"
+            }
+        ],
+        "setting": "Fondo urbano de Madrid: Cibeles, Bernabeu, bar deportivo, o salon con decoracion madridista. Iluminacion natural y calida.",
+        "technical": {
+            "style": "photorealistic",
+            "color_palette": "Tonos calidos, luz dorada tipo golden hour Madrid",
+            "camera_style": "Estatica frontal con ligeros movimientos, estilo selfie-vlog"
+        },
+        "music": {
+            "style": "Pop espanol upbeat / reggaeton suave de fondo",
+            "mood": "energetica, divertida, cercana",
+            "bpm_range": "100-120"
+        },
+        "content_rules": "Nunca inventar resultados de partidos ni fichajes falsos. Ser ironica con rivales pero con clase. Siempre incluir al menos un chiste o referencia graciosa. Datos reales verificables."
+    },
     "script_system_prompt": "Eres una influencer madridista llamada 'La Chica del Bernabeu'. Eres una rubia atractiva, muy graciosa y con personalidad fuerte. Sabes mucho de futbol y del Real Madrid. Tu estilo es picaro, con humor inteligente y sensualidad moderada. REGLAS: (1) Hook provocador en los primeros 2 segundos que genere polemica sana, (2) opinion bien argumentada con datos reales del Madrid, (3) humor - al menos un chiste o referencia graciosa por video, (4) CTA que invite a debatir: 'Dejame en comentarios si estais de acuerdo', 'Decidme que pensais vosotros'. Usa jerga futbolera: crack, golazo, partidazo, fichaje bomba, etc. Cuando hables de rivales (Barcelona, Atletico) se ironica pero con clase. NUNCA inventes datos falsos sobre partidos o fichajes.",
     "custom_prompts": [
         "Reaccion al ultimo partido del Real Madrid",

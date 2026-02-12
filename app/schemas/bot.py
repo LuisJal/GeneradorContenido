@@ -34,6 +34,11 @@ class BotCreate(BaseModel):
     character_personality: Optional[str] = None
     story_arc_enabled: bool = False
     story_arc_chapters: int = Field(default=3, ge=2, le=5)
+    production_mode: str = Field(
+        default="standard",
+        pattern="^(standard|storyboard|talking_head)$",
+    )
+    production_config: Optional[dict] = None
     template: Optional[str] = None
 
 
@@ -61,6 +66,11 @@ class BotUpdate(BaseModel):
     character_personality: Optional[str] = None
     story_arc_enabled: Optional[bool] = None
     story_arc_chapters: Optional[int] = Field(default=None, ge=2, le=5)
+    production_mode: Optional[str] = Field(
+        default=None,
+        pattern="^(standard|storyboard|talking_head)$",
+    )
+    production_config: Optional[dict] = None
 
 
 class BotResponse(BaseModel):
@@ -86,6 +96,8 @@ class BotResponse(BaseModel):
     character_personality: Optional[str]
     story_arc_enabled: bool
     story_arc_chapters: int
+    production_mode: str
+    production_config: Optional[dict]
     created_at: datetime
     updated_at: datetime
 

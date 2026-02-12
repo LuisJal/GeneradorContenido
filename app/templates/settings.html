@@ -39,12 +39,31 @@
     </fieldset>
 
     <fieldset class="settings-fieldset">
-        <legend>Kling 3.0 (proveedor de video alternativo)</legend>
+        <legend>AIML API (video - recomendado)</legend>
 
-        <label for="kling_api_key">Kling API Key</label>
+        <label for="aiml_api_key">AIML API Key</label>
+        <input type="password" id="aiml_api_key" name="aiml_api_key"
+               placeholder="{% if current.aiml_api_key %}{{ current.aiml_api_key }}{% else %}Tu clave API de AIML{% endif %}">
+        <small>Acceso economico a Kling V3 para generar videos de 3-15s. Obtenla en <a href="https://aimlapi.com" target="_blank">aimlapi.com</a></small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>Kling 3.0 (video - API directa)</legend>
+
+        <label for="kling_access_key">Kling Access Key</label>
+        <input type="password" id="kling_access_key" name="kling_access_key"
+               placeholder="{% if current.kling_access_key %}{{ current.kling_access_key }}{% else %}Tu Access Key de Kling{% endif %}">
+        <small>Access Key de la API directa de Kling.</small>
+
+        <label for="kling_secret_key">Kling Secret Key</label>
+        <input type="password" id="kling_secret_key" name="kling_secret_key"
+               placeholder="{% if current.kling_secret_key %}{{ current.kling_secret_key }}{% else %}Tu Secret Key de Kling{% endif %}">
+        <small>Secret Key de la API directa de Kling.</small>
+
+        <label for="kling_api_key">Kling API Key (legacy)</label>
         <input type="password" id="kling_api_key" name="kling_api_key"
-               placeholder="{% if current.kling_api_key %}{{ current.kling_api_key }}{% else %}Tu clave API de Kling{% endif %}">
-        <small>Alternativa a Veo 3 para generar videos.</small>
+               placeholder="{% if current.kling_api_key %}{{ current.kling_api_key }}{% else %}Solo si no usas Access/Secret Key{% endif %}">
+        <small>Clave legacy de Kling (solo si no tienes access/secret key).</small>
     </fieldset>
 
     <fieldset class="settings-fieldset">

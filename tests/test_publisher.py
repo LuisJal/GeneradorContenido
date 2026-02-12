@@ -28,8 +28,11 @@ class FakeCredential:
     ):
         self.platform = platform
         self.access_token_encrypted = access_token_encrypted
+        self.refresh_token_encrypted = None
+        self.token_expires_at = None
         self.platform_user_id = platform_user_id
         self.is_active = is_active
+        self.id = 1
 
 
 class FakeContent:

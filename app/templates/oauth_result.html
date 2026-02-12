@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube OAuth - GeneradorContenido{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Autorizacion de YouTube</h1>
+</div>
+
+{% if success %}
+<div class="flash-success">{{ message }}</div>
+<div class="action-bar">
+    <a href="/bots/{{ bot_slug }}/edit" class="btn-gradient">Volver a editar bot</a>
+    <a href="/" class="btn-action">Ir al Dashboard</a>
+</div>
+{% else %}
+<div class="flash-error">{{ message }}</div>
+<div class="action-bar">
+    <a href="/" class="btn-action">Volver al Dashboard</a>
+</div>
+{% endif %}
+{% endblock %}

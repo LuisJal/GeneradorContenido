@@ -13,10 +13,20 @@
 {% endblock %}
 
 {% block content %}
+{% set pc = bot.production_config or {} %}
+{% set chars = pc.get('characters', []) %}
+{% set tech = pc.get('technical', {}) %}
+{% set mus = pc.get('music', {}) %}
 <div x-data="{
     tab: 'general',
     provider: '{{ bot.video_provider }}',
-    arcEnabled: {{ 'true' if bot.story_arc_enabled else 'false' }}
+    arcEnabled: {{ 'true' if bot.story_arc_enabled else 'false' }},
+    productionMode: '{{ bot.production_mode or "standard" }}',
+    characters: {{ chars | tojson }},
+    addCharacter() {
+        this.characters.push({name:'', role:'protagonist', visual_description:'', personality:'', clothing:'', distinguishing_features:'', face_url:'', voice_id:''});
+    },
+    removeCharacter(i) { this.characters.splice(i, 1); }
 }">
 
     <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-3);">
@@ -32,8 +42,7 @@
     <div class="tabs">
         <button type="button" class="tab" :class="{ 'active': tab === 'general' }" @click="tab = 'general'">General</button>
         <button type="button" class="tab" :class="{ 'active': tab === 'video' }" @click="tab = 'video'">Video</button>
-        <button type="button" class="tab" :class="{ 'active': tab === 'character' }" @click="tab = 'character'"
-                x-show="provider === 'talking_head'">Personaje</button>
+        <button type="button" class="tab" :class="{ 'active': tab === 'production' }" @click="tab = 'production'">Produccion</button>
         <button type="button" class="tab" :class="{ 'active': tab === 'schedule' }" @click="tab = 'schedule'">Programacion</button>
         <button type="button" class="tab" :class="{ 'active': tab === 'credentials' }" @click="tab = 'credentials'">Credenciales</button>
     </div>
@@ -139,38 +148,138 @@
             </div>
         </div>
 
-        <!-- Tab: Character (only for talking_head) -->
-        <div x-show="tab === 'character' && provider === 'talking_head'" x-cloak>
+        <!-- Tab: Produccion -->
+        <div x-show="tab === 'production'" x-cloak>
+
+            <!-- Production mode -->
             <div class="card mb-6">
-                <h3 class="form-section-title">Personaje (Talking Head)</h3>
+                <h3 class="form-section-title">Modo de produccion</h3>
+                <select name="production_mode" x-model="productionMode">
+                    <option value="standard">Estandar (hook/body/cta)</option>
+                    <option value="storyboard">Storyboard (narrativo con escenas)</option>
+                    <option value="talking_head">Talking Head (dialogo para personaje)</option>
+                </select>
+                <small>Storyboard genera un documento completo con escenas, dialogos, musica y video prompt. Talking Head se enfoca en el monologo del personaje.</small>
+            </div>
+
+            <!-- Characters -->
+            <div class="card mb-6" x-show="productionMode !== 'standard'">
+                <h3 class="form-section-title">Personajes</h3>
                 <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
-                    Configura la cara y voz del personaje IA. La misma cara y voz se usaran en todos los videos para mantener consistencia.
+                    Define los personajes que aparecen en tus videos. El primer personaje es el principal.
                 </p>
 
-                <label for="character_face_url">URL de imagen de referencia (cara)</label>
-                <input type="url" id="character_face_url" name="character_face_url"
-                       value="{{ bot.character_face_url or '' }}"
-                       placeholder="https://ejemplo.com/cara-referencia.png">
-                <small>Imagen frontal del personaje para lip-sync en Hedra.</small>
+                <template x-for="(char, i) in characters" :key="i">
+                    <div class="card" style="border:1px solid var(--color-border);margin-bottom:var(--space-4);padding:var(--space-4);">
+                        <div class="flex items-center justify-between" style="margin-bottom:var(--space-3);">
+                            <strong x-text="char.name || ('Personaje ' + (i+1))" style="font-size:var(--text-sm);"></strong>
+                            <button type="button" class="btn btn-danger btn-sm" @click="removeCharacter(i)">&times;</button>
+                        </div>
 
-                {% if bot.character_face_url %}
-                <div class="character-face-preview">
-                    <img src="{{ bot.character_face_url }}" alt="Preview"
-                         onerror="this.parentElement.style.display='none';">
-                </div>
-                {% endif %}
+                        <div class="form-grid">
+                            <div>
+                                <label :for="'character_name_'+i">Nombre</label>
+                                <input type="text" :name="'character_name_'+i" x-model="char.name" placeholder="Nombre del personaje">
+                            </div>
+                            <div>
+                                <label :for="'character_role_'+i">Rol</label>
+                                <select :name="'character_role_'+i" x-model="char.role">
+                                    <option value="protagonist">Protagonista</option>
+                                    <option value="antagonist">Antagonista</option>
+                                    <option value="supporting">Secundario</option>
+                                    <option value="narrator">Narrador</option>
+                                </select>
+                            </div>
+                        </div>
 
-                <label for="character_voice_id">ElevenLabs Voice ID</label>
-                <input type="text" id="character_voice_id" name="character_voice_id"
-                       value="{{ bot.character_voice_id or '' }}"
-                       placeholder="pNInz6obpgDQGcFmaJgB">
-                <small>ID de la voz en ElevenLabs. <a href="https://elevenlabs.io/voice-library" target="_blank">Voice Library</a></small>
+                        <label :for="'character_visual_'+i">Descripcion visual</label>
+                        <textarea :name="'character_visual_'+i" x-model="char.visual_description" rows="3" placeholder="Apariencia fisica detallada para la IA de video..."></textarea>
 
-                <label for="character_personality">Personalidad del personaje</label>
-                <textarea id="character_personality" name="character_personality" rows="5"
-                          placeholder="Describe la personalidad, tono y estilo del personaje...">{{ bot.character_personality or '' }}</textarea>
-                <small>Se incluye en los prompts de guion para mantener el tono consistente.</small>
+                        <label :for="'character_personality_'+i">Personalidad</label>
+                        <textarea :name="'character_personality_'+i" x-model="char.personality" rows="2" placeholder="Rasgos de personalidad, tono, comportamiento..."></textarea>
+
+                        <div class="form-grid">
+                            <div>
+                                <label :for="'character_clothing_'+i">Vestimenta</label>
+                                <input type="text" :name="'character_clothing_'+i" x-model="char.clothing" placeholder="Ropa tipica del personaje...">
+                            </div>
+                            <div>
+                                <label :for="'character_features_'+i">Rasgos distintivos</label>
+                                <input type="text" :name="'character_features_'+i" x-model="char.distinguishing_features" placeholder="Cicatrices, accesorios, gestos...">
+                            </div>
+                        </div>
+
+                        <!-- Face/Voice only for talking_head -->
+                        <div x-show="provider === 'talking_head' && i === 0" style="margin-top:var(--space-3);">
+                            <div class="form-grid">
+                                <div>
+                                    <label :for="'character_face_url_'+i">URL imagen referencia (cara)</label>
+                                    <input type="url" :name="'character_face_url_'+i" x-model="char.face_url" placeholder="https://...">
+                                </div>
+                                <div>
+                                    <label :for="'character_voice_id_'+i">ElevenLabs Voice ID</label>
+                                    <input type="text" :name="'character_voice_id_'+i" x-model="char.voice_id" placeholder="pNInz6obpgDQGcFmaJgB">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <button type="button" class="btn btn-secondary btn-sm" @click="addCharacter()">+ Agregar personaje</button>
             </div>
+
+            <!-- Setting -->
+            <div class="card mb-6" x-show="productionMode !== 'standard'">
+                <h3 class="form-section-title">Escenario</h3>
+                <textarea name="production_setting" rows="2" placeholder="Describe el escenario o ambientacion recurrente...">{{ pc.get('setting', '') }}</textarea>
+            </div>
+
+            <!-- Technical specs -->
+            <div class="card mb-6" x-show="productionMode !== 'standard'">
+                <h3 class="form-section-title">Especificaciones tecnicas</h3>
+                <div class="form-grid">
+                    <div>
+                        <label for="technical_style">Estilo visual</label>
+                        <select id="technical_style" name="technical_style">
+                            <option value="" {{ "selected" if not tech.get('style') }}>Sin especificar</option>
+                            <option value="photorealistic" {{ "selected" if tech.get('style') == 'photorealistic' }}>Fotorrealista</option>
+                            <option value="anime" {{ "selected" if tech.get('style') == 'anime' }}>Anime</option>
+                            <option value="3d_animation" {{ "selected" if tech.get('style') == '3d_animation' }}>Animacion 3D</option>
+                            <option value="cartoon" {{ "selected" if tech.get('style') == 'cartoon' }}>Cartoon</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="technical_camera_style">Estilo de camara</label>
+                        <input type="text" id="technical_camera_style" name="technical_camera_style" value="{{ tech.get('camera_style', '') }}" placeholder="Dinamico, estatico frontal...">
+                    </div>
+                </div>
+                <label for="technical_color_palette">Paleta de colores</label>
+                <input type="text" id="technical_color_palette" name="technical_color_palette" value="{{ tech.get('color_palette', '') }}" placeholder="Tonos calidos, neon, oscuro...">
+            </div>
+
+            <!-- Music -->
+            <div class="card mb-6" x-show="productionMode !== 'standard'">
+                <h3 class="form-section-title">Musica</h3>
+                <div class="form-grid">
+                    <div>
+                        <label for="music_style">Estilo</label>
+                        <input type="text" id="music_style" name="music_style" value="{{ mus.get('style', '') }}" placeholder="Pop, epico orquestal, lo-fi...">
+                    </div>
+                    <div>
+                        <label for="music_mood">Ambiente</label>
+                        <input type="text" id="music_mood" name="music_mood" value="{{ mus.get('mood', '') }}" placeholder="Energetico, melancolico...">
+                    </div>
+                </div>
+                <label for="music_bpm_range">Rango BPM</label>
+                <input type="text" id="music_bpm_range" name="music_bpm_range" value="{{ mus.get('bpm_range', '') }}" placeholder="100-120" style="max-width:150px;">
+            </div>
+
+            <!-- Content rules -->
+            <div class="card mb-6" x-show="productionMode !== 'standard'">
+                <h3 class="form-section-title">Reglas de contenido</h3>
+                <textarea name="content_rules" rows="3" placeholder="Restricciones o directivas que siempre deben cumplirse...">{{ pc.get('content_rules', '') }}</textarea>
+            </div>
+
         </div>
 
         <!-- Tab: Schedule -->

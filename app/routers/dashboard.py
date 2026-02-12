@@ -246,6 +246,40 @@ async def bot_edit_submit(request: Request, slug: str, db: Session = Depends(get
         custom_prompts = [p.strip() for p in form.getlist("custom_prompt") if p.strip()]
 
         schedule_times = form.get("schedule_times", "09:00")
+
+        # Parse production_config from indexed form fields
+        characters = []
+        idx = 0
+        while form.get(f"character_name_{idx}") is not None:
+            char = {
+                "name": form.get(f"character_name_{idx}", ""),
+                "role": form.get(f"character_role_{idx}", "protagonist"),
+                "visual_description": form.get(f"character_visual_{idx}", ""),
+                "personality": form.get(f"character_personality_{idx}", ""),
+                "clothing": form.get(f"character_clothing_{idx}", ""),
+                "distinguishing_features": form.get(f"character_features_{idx}", ""),
+                "face_url": form.get(f"character_face_url_{idx}", "") or None,
+                "voice_id": form.get(f"character_voice_id_{idx}", "") or None,
+            }
+            characters.append(char)
+            idx += 1
+
+        production_config = {
+            "characters": characters,
+            "setting": form.get("production_setting", ""),
+            "technical": {
+                "style": form.get("technical_style", ""),
+                "color_palette": form.get("technical_color_palette", ""),
+                "camera_style": form.get("technical_camera_style", ""),
+            },
+            "music": {
+                "style": form.get("music_style", ""),
+                "mood": form.get("music_mood", ""),
+                "bpm_range": form.get("music_bpm_range", ""),
+            },
+            "content_rules": form.get("content_rules", ""),
+        }
+
         data = BotUpdate(
             niche_description=form.get("niche_description") or None,
             content_style=form.get("content_style") or None,
@@ -267,6 +301,8 @@ async def bot_edit_submit(request: Request, slug: str, db: Session = Depends(get
             story_arc_enabled=form.get("story_arc_enabled") is not None,
             story_arc_chapters=int(form.get("story_arc_chapters", 3)),
             custom_prompts=custom_prompts,
+            production_mode=form.get("production_mode", "standard"),
+            production_config=production_config if characters else None,
         )
         bot_manager.update_bot(db, slug, data)
         return RedirectResponse(url=f"/bots/{slug}", status_code=303)

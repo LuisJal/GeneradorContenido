@@ -31,6 +31,9 @@
             </div>
             <p style="margin:0;font-size:var(--text-sm);color:var(--color-text-tertiary);">
                 {{ bot.niche }} &middot; {{ bot.video_provider | replace("_", " ") | title }} &middot; {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}/dia
+                {% if bot.production_mode and bot.production_mode != 'standard' %}
+                &middot; <span style="color:var(--color-accent);">{{ bot.production_mode | replace("_", " ") | title }}</span>
+                {% endif %}
             </p>
         </div>
 

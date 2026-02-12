@@ -263,6 +263,133 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
             raise
 
     # ------------------------------------------------------------------
+    # Production document generation
+    # ------------------------------------------------------------------
+
+    # Storyboard mode schema
+    _STORYBOARD_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "characters": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                    },
+                    "required": ["name", "description"],
+                },
+            },
+            "storyboard": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "timestamp": {"type": "string"},
+                        "visual": {"type": "string"},
+                        "dialogue": {"type": "string"},
+                        "music_direction": {"type": "string"},
+                        "camera": {"type": "string"},
+                    },
+                    "required": ["timestamp", "visual", "dialogue"],
+                },
+            },
+            "music_description": {"type": "string"},
+            "video_prompt": {"type": "string"},
+            "dialogue_full": {"type": "string"},
+            "hook": {"type": "string"},
+            "cta": {"type": "string"},
+        },
+        "required": ["title", "storyboard", "video_prompt", "dialogue_full", "hook", "cta"],
+    }
+
+    # Talking head mode schema
+    _TALKING_HEAD_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "storyboard": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "timestamp": {"type": "string"},
+                        "expression": {"type": "string"},
+                        "dialogue": {"type": "string"},
+                        "overlay_text": {"type": "string"},
+                    },
+                    "required": ["timestamp", "dialogue"],
+                },
+            },
+            "video_prompt": {"type": "string"},
+            "dialogue_full": {"type": "string"},
+            "hook": {"type": "string"},
+            "cta": {"type": "string"},
+            "music_description": {"type": "string"},
+        },
+        "required": ["title", "storyboard", "video_prompt", "dialogue_full", "hook", "cta"],
+    }
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type(_RETRYABLE),
+        reraise=True,
+    )
+    def generate_production_document(
+        self, system_prompt: str, user_prompt: str, mode: str = "storyboard"
+    ) -> dict:
+        """Generate a full production document with structured JSON output.
+
+        *mode* selects the response schema: ``"storyboard"`` for cinematic
+        narratives or ``"talking_head"`` for dialogue-focused content.
+        """
+        schema = (
+            self._TALKING_HEAD_SCHEMA if mode == "talking_head"
+            else self._STORYBOARD_SCHEMA
+        )
+
+        try:
+            response = self._client.models.generate_content(
+                model=self._model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                    response_schema=schema,
+                    temperature=0.9,
+                    max_output_tokens=4096,
+                ),
+            )
+
+            raw_text = response.text
+            if not raw_text:
+                raise GeminiClientError(
+                    "Gemini returned an empty response for production document."
+                )
+
+            doc: dict = json.loads(raw_text)
+            logger.info(
+                "Production document generated (mode=%s, scenes=%d)",
+                mode,
+                len(doc.get("storyboard", [])),
+            )
+            return doc
+
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to parse production document JSON: %s", exc)
+            raise GeminiClientError(
+                f"Invalid JSON in production document response: {exc}"
+            ) from exc
+        except GeminiClientError:
+            raise
+        except Exception as exc:
+            logger.error("Gemini generate_production_document failed: %s", exc)
+            raise
+
+    # ------------------------------------------------------------------
     # Platform descriptions generation
     # ------------------------------------------------------------------
 

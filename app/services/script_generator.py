@@ -192,6 +192,78 @@ async def generate_content_script(
         ) from exc
 
 
+async def generate_production_document(
+    bot: Bot,
+    topic: str,
+    *,
+    arc_premise: Optional[str] = None,
+    arc_chapter: Optional[int] = None,
+    arc_total: Optional[int] = None,
+    previous_scripts: Optional[List[dict]] = None,
+) -> dict:
+    """Generate a full production document using the master prompt builder.
+
+    Returns a dict matching the storyboard or talking_head schema depending
+    on ``bot.production_mode``.
+    """
+    from app.services.master_prompt_builder import build_master_system_prompt
+
+    logger.info(
+        "Generating production document for bot='%s' topic='%s' mode='%s'",
+        bot.name, topic, bot.production_mode,
+    )
+
+    client = _get_client(bot)
+    system_prompt = build_master_system_prompt(bot)
+
+    user_prompt = f"Create a production document for this topic:\n\n{topic}\n\n"
+
+    if arc_premise and arc_chapter and arc_total:
+        user_prompt += (
+            f"--- STORY ARC CONTEXT ---\n"
+            f"This is Part {arc_chapter} of {arc_total} in a multi-part story.\n"
+            f"Overall story premise:\n{arc_premise}\n\n"
+        )
+        if previous_scripts:
+            for i, prev in enumerate(previous_scripts, 1):
+                user_prompt += (
+                    f"Part {i} title: {prev.get('title', '')}\n"
+                    f"Part {i} hook: {prev.get('hook', '')}\n\n"
+                )
+        if arc_chapter < arc_total:
+            user_prompt += (
+                f"END this part with a cliffhanger. "
+                f"The CTA should tell viewers to watch Part {arc_chapter + 1}.\n\n"
+            )
+        else:
+            user_prompt += (
+                "This is the FINAL part. Resolve the story satisfyingly.\n\n"
+            )
+
+    user_prompt += (
+        "Generate the full production document following the output format "
+        "specified in your instructions."
+    )
+
+    mode = bot.production_mode or "storyboard"
+    try:
+        doc = await asyncio.to_thread(
+            client.generate_production_document, system_prompt, user_prompt, mode
+        )
+        logger.info(
+            "Production document generated for bot='%s' (scenes=%d)",
+            bot.name, len(doc.get("storyboard", [])),
+        )
+        return doc
+    except GeminiClientError:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error generating production document: %s", exc)
+        raise GeminiClientError(
+            f"Production document generation failed for bot '{bot.name}': {exc}"
+        ) from exc
+
+
 async def generate_content_descriptions(
     bot: Bot,
     script: dict,

@@ -11,7 +11,12 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="{ tab: 'overview', showSetup: {{ 'true' if setup_status and not setup_status.all_ready else 'false' }} }">
+<div x-data="{
+    tab: 'overview',
+    showSetup: {{ 'true' if setup_status and not setup_status.all_ready else 'false' }},
+    provider: '{{ bot.video_provider }}',
+    arcEnabled: {{ 'true' if bot.story_arc_enabled else 'false' }}
+}">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-4);">
@@ -63,7 +68,7 @@
                 </button>
                 <div class="dropdown-menu" x-show="open" @click.away="open = false" x-cloak
                      x-transition:enter="slide-enter-active" x-transition:enter-start="slide-enter-from" x-transition:leave="slide-leave-active" x-transition:leave-start="slide-leave-to">
-                    <a href="/bots/{{ bot.slug }}/edit" class="dropdown-item">Editar</a>
+                    <a href="/bots/{{ bot.slug }}/edit" class="dropdown-item">Editar avanzado</a>
                     {% if bot.story_arc_enabled %}
                     <button
                         hx-post="/bots/{{ bot.slug }}/run"
@@ -121,9 +126,9 @@
                     ("gemini_key", "Gemini API Key", "Genera guiones y descripciones con IA", "/settings"),
                     ("elevenlabs_key", "ElevenLabs API Key", "Convierte el guion en audio con voz realista", "/settings"),
                     ("hedra_key", "Hedra API Key", "Genera video con lip-sync (Character-3)", "/settings"),
-                    ("face_url", "Imagen de referencia (cara)", "Foto frontal del personaje para lip-sync", "/bots/" ~ bot.slug ~ "/edit"),
-                    ("voice_id", "ElevenLabs Voice ID", "ID de la voz asignada al personaje", "/bots/" ~ bot.slug ~ "/edit"),
-                    ("personality", "Personalidad del personaje", "Define el tono y estilo de los guiones", "/bots/" ~ bot.slug ~ "/edit"),
+                    ("face_url", "Imagen de referencia (cara)", "Foto frontal del personaje para lip-sync", "#character-section"),
+                    ("voice_id", "ElevenLabs Voice ID", "ID de la voz asignada al personaje", "#character-section"),
+                    ("personality", "Personalidad del personaje", "Define el tono y estilo de los guiones", "#character-section"),
                 ] %}
                 <li class="setup-item {{ 'setup-ok' if setup_status[item[0]] else 'setup-missing' }}">
                     <span class="setup-icon">{{ '&#10003;' if setup_status[item[0]] else '&#9888;' }}</span>
@@ -132,7 +137,11 @@
                         <span class="setup-hint">{{ item[2] }}</span>
                     </div>
                     {% if not setup_status[item[0]] %}
+                    {% if item[3].startswith('#') %}
+                    <button type="button" class="setup-action" @click="tab = 'overview'; setTimeout(() => document.querySelector('{{ item[3] }}')?.scrollIntoView({behavior:'smooth'}), 100)">Configurar</button>
+                    {% else %}
                     <a href="{{ item[3] }}" class="setup-action">Configurar</a>
+                    {% endif %}
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -174,44 +183,124 @@
         <button class="tab" :class="{ 'active': tab === 'logs' }" @click="tab = 'logs'">Logs</button>
     </div>
 
-    <!-- Tab: Overview -->
+    <!-- Tab: Overview (EDITABLE FORM) -->
     <div x-show="tab === 'overview'">
-        <div class="info-grid">
-            <div class="info-card">
-                <h3>Configuracion</h3>
-                <div class="info-row"><span class="info-label">Nicho</span><span class="info-value">{{ bot.niche }}</span></div>
-                <div class="info-row"><span class="info-label">Idioma</span><span class="info-value">{{ bot.language | upper }}</span></div>
-                <div class="info-row"><span class="info-label">Videos/dia</span><span class="info-value">{{ bot.videos_per_day }}</span></div>
-                <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ bot.video_provider | replace("_", " ") | title }}</span></div>
-                <div class="info-row"><span class="info-label">Duracion</span><span class="info-value">{{ bot.video_duration_seconds }}s</span></div>
-                {% if bot.story_arc_enabled %}
-                <div class="info-row"><span class="info-label">Arco</span><span class="info-value">{{ bot.story_arc_chapters }} capitulos</span></div>
-                {% endif %}
-                <div class="info-row"><span class="info-label">Tendencias</span><span class="info-value">{{ "Si" if bot.use_trends else "No" }}</span></div>
-            </div>
+        <form method="post" action="/bots/{{ bot.slug }}/edit" id="detail-edit-form">
+            <div class="info-grid">
+                <!-- Left card: Config -->
+                <div class="card">
+                    <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-4);">Configuracion</h3>
 
-            <div class="info-card">
-                <h3>Descripcion</h3>
-                <p style="color:var(--color-text-secondary);font-size:var(--text-sm);line-height:1.6;">{{ bot.niche_description or "Sin descripcion" }}</p>
-                {% if bot.content_style %}
-                <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--color-separator);">
-                    <span class="text-xs text-tertiary font-semibold" style="text-transform:uppercase;letter-spacing:0.04em;">Estilo</span>
-                    <p style="font-size:var(--text-sm);margin-top:var(--space-1);color:var(--color-text-secondary);">{{ bot.content_style }}</p>
+                    <label for="niche_description">Descripcion del nicho</label>
+                    <textarea id="niche_description" name="niche_description" rows="3">{{ bot.niche_description }}</textarea>
+
+                    <label for="content_style">Estilo de contenido</label>
+                    <input type="text" id="content_style" name="content_style" value="{{ bot.content_style }}">
+
+                    <label for="brand_style">Identidad visual</label>
+                    <textarea id="brand_style" name="brand_style" rows="3" placeholder="Estilo visual para todos los videos...">{{ bot.brand_style }}</textarea>
+
+                    <div class="form-grid">
+                        <div>
+                            <label for="language">Idioma</label>
+                            <select id="language" name="language">
+                                <option value="es" {{ "selected" if bot.language == "es" }}>Espanol</option>
+                                <option value="en" {{ "selected" if bot.language == "en" }}>English</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="videos_per_day">Videos/dia</label>
+                            <input type="number" id="videos_per_day" name="videos_per_day" value="{{ bot.videos_per_day }}" min="1" max="10">
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
-            </div>
-        </div>
 
-        {% if bot.custom_prompts %}
-        <div class="card mb-6">
-            <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);">Prompts personalizados</h3>
-            <ol style="padding-left:var(--space-5);color:var(--color-text-secondary);font-size:var(--text-sm);line-height:1.8;">
-                {% for prompt in bot.custom_prompts %}
-                <li>{{ prompt }}</li>
-                {% endfor %}
-            </ol>
-        </div>
-        {% endif %}
+                <!-- Right card: Video + Schedule -->
+                <div class="card">
+                    <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-4);">Video y programacion</h3>
+
+                    <label for="video_provider">Proveedor</label>
+                    <select id="video_provider" name="video_provider" x-model="provider">
+                        <option value="aiml_kling" {{ "selected" if bot.video_provider == "aiml_kling" }}>Kling V3 via AIML</option>
+                        <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3</option>
+                        <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0</option>
+                        <option value="talking_head" {{ "selected" if bot.video_provider == "talking_head" }}>Talking Head</option>
+                    </select>
+
+                    <label for="video_duration_seconds">Duracion (seg)</label>
+                    <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="60">
+
+                    <div class="form-grid">
+                        <div>
+                            <label for="schedule_times">Horarios</label>
+                            <input type="text" id="schedule_times" name="schedule_times"
+                                   value="{{ bot.posting_schedule.get('times', ['09:00']) | join(', ') }}">
+                        </div>
+                        <div>
+                            <label for="schedule_timezone">Zona horaria</label>
+                            <input type="text" id="schedule_timezone" name="schedule_timezone"
+                                   value="{{ bot.posting_schedule.get('timezone', 'Europe/Madrid') }}">
+                        </div>
+                    </div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="use_trends" {{ "checked" if bot.use_trends }}>
+                        <span>Usar tendencias</span>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="story_arc_enabled" x-model="arcEnabled" {{ "checked" if bot.story_arc_enabled }}>
+                        <span>Arcos narrativos</span>
+                    </label>
+                    <div x-show="arcEnabled">
+                        <label for="story_arc_chapters">Capitulos</label>
+                        <input type="number" id="story_arc_chapters" name="story_arc_chapters"
+                               value="{{ bot.story_arc_chapters or 3 }}" min="2" max="5" style="max-width:100px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Character fields (talking_head only) -->
+            <div x-show="provider === 'talking_head'" x-collapse x-cloak id="character-section">
+                <div class="card mb-6" style="margin-top:var(--space-4);">
+                    <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-4);">Personaje (Talking Head)</h3>
+
+                    <label for="character_face_url">URL imagen de referencia (cara)</label>
+                    <input type="url" id="character_face_url" name="character_face_url"
+                           value="{{ bot.character_face_url or '' }}"
+                           placeholder="https://ejemplo.com/cara.png">
+                    <small>Imagen frontal del personaje para lip-sync en Hedra.</small>
+
+                    <label for="character_voice_id">ElevenLabs Voice ID</label>
+                    <input type="text" id="character_voice_id" name="character_voice_id"
+                           value="{{ bot.character_voice_id or '' }}"
+                           placeholder="pNInz6obpgDQGcFmaJgB">
+
+                    <label for="character_personality">Personalidad del personaje</label>
+                    <textarea id="character_personality" name="character_personality" rows="4"
+                              placeholder="Describe la personalidad, tono y estilo...">{{ bot.character_personality or '' }}</textarea>
+                </div>
+            </div>
+
+            <!-- Custom Prompts -->
+            <div class="card mb-6" style="margin-top:var(--space-4);">
+                <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);">Prompts personalizados</h3>
+                <div id="prompts-container">
+                    {% for prompt in (bot.custom_prompts or []) %}
+                    <div class="prompt-row">
+                        <input type="text" name="custom_prompt" class="prompt-input" value="{{ prompt }}" placeholder="Idea de contenido...">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addPrompt()" style="margin-top:var(--space-2);">+ Agregar prompt</button>
+            </div>
+
+            <!-- Save button -->
+            <div class="action-bar">
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            </div>
+        </form>
     </div>
 
     <!-- Tab: Content -->
@@ -232,7 +321,7 @@
                     <td>{{ item.trend_topic or item.script_prompt or "Sin tema" }}</td>
                     <td><span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span></td>
                     <td style="white-space:nowrap;">{{ item.created_at.strftime("%d/%m %H:%M") if item.created_at else "" }}</td>
-                    <td><a href="/content/{{ item.id }}" class="btn btn-ghost btn-sm">Ver</a></td>
+                    <td><a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="btn btn-ghost btn-sm">Ver</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -274,4 +363,16 @@
     </div>
 
 </div>
+
+<script>
+function addPrompt() {
+    var container = document.getElementById('prompts-container');
+    var row = document.createElement('div');
+    row.className = 'prompt-row';
+    row.innerHTML = '<input type="text" name="custom_prompt" class="prompt-input" placeholder="Idea de contenido...">'
+        + '<button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>';
+    container.appendChild(row);
+    row.querySelector('input').focus();
+}
+</script>
 {% endblock %}

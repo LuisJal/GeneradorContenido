@@ -36,6 +36,10 @@
         <label for="content_style">Estilo de contenido</label>
         <input type="text" id="content_style" name="content_style" placeholder="Energetico, motivacional, conciso">
 
+        <label for="brand_style">Identidad visual del canal</label>
+        <textarea id="brand_style" name="brand_style" rows="4" placeholder="Describe el estilo visual para todos los videos. Ej: 'Anime shonen, colores neon vibrantes, escenas de accion dinamicas...'"></textarea>
+        <small>Define la estetica visual consistente para mantener coherencia en el canal.</small>
+
         <label for="language">Idioma</label>
         <select id="language" name="language">
             <option value="es" selected>Espanol</option>
@@ -51,22 +55,24 @@
 
         <label for="video_provider">Proveedor de video</label>
         <select id="video_provider" name="video_provider">
-            <option value="veo3" selected>Google Veo 3</option>
-            <option value="kling3">Kling 3.0</option>
+            <option value="aiml_kling" selected>Kling V3 via AIML (3-15s, economico)</option>
+            <option value="veo3">Google Veo 3 (max 8s)</option>
+            <option value="kling3">Kling 3.0 (directo)</option>
         </select>
 
         <label for="video_duration_seconds">Duracion del video (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="15" min="5" max="60">
+        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="10" min="3" max="15">
 
         <label for="videos_per_day">Videos por dia</label>
         <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">
     </fieldset>
 
     <fieldset>
-        <legend>Programacion</legend>
+        <legend>Programacion de publicacion</legend>
 
-        <label for="schedule_times">Horarios (separados por coma)</label>
+        <label for="schedule_times">Horarios de publicacion (separados por coma)</label>
         <input type="text" id="schedule_times" name="schedule_times" value="09:00" placeholder="09:00, 18:00">
+        <small>Horas a las que se publicara contenido aprobado automaticamente.</small>
 
         <label for="schedule_timezone">Zona horaria</label>
         <input type="text" id="schedule_timezone" name="schedule_timezone" value="Europe/Madrid">

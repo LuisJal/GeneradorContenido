@@ -113,30 +113,76 @@ class GeminiClient:
         retry=retry_if_exception_type(_RETRYABLE),
         reraise=True,
     )
-    def generate_video_prompt(self, script: dict) -> str:
-        """Convert a structured script dict into a single visual video-generation prompt.
+    def generate_video_prompt(
+        self,
+        script: dict,
+        bot_context: Optional[dict] = None,
+    ) -> str:
+        """Convert a structured script dict into a narrative video prompt.
 
-        The returned string is optimised for AI video generators (e.g. Veo, Kling).
+        Parameters
+        ----------
+        script:
+            Dict with keys ``hook``, ``body``, ``cta``, ``visual_cues``.
+        bot_context:
+            Optional dict with bot metadata: ``niche``, ``niche_description``,
+            ``content_style``, ``brand_style``, ``video_duration_seconds``,
+            ``video_aspect_ratio``, ``language``.
         """
-        system_instruction = (
-            "You are an expert at writing prompts for AI video generation models. "
-            "Given a video script with hook, body, cta, and visual_cues, produce a "
-            "single, detailed, cinematic prompt that a video-generation AI can use to "
-            "create a short vertical (9:16) video.\n\n"
-            "Guidelines:\n"
-            "- Describe the visual scenes in vivid detail: camera angles, lighting, "
-            "colours, motion, transitions.\n"
-            "- Incorporate the visual_cues provided in the script.\n"
-            "- Keep the prompt under 1500 characters.\n"
-            "- Do NOT include dialogue or narration text; focus purely on visuals.\n"
-            "- Output ONLY the prompt text, nothing else."
-        )
+        ctx = bot_context or {}
+        duration = ctx.get("video_duration_seconds", 10)
+        aspect = ctx.get("video_aspect_ratio", "9:16")
+        orientation = "vertical (9:16)" if "9:16" in aspect else f"({aspect})"
+
+        # Calculate scene structure based on duration
+        if duration <= 5:
+            scenes = 1
+            scene_guide = "One single continuous scene with a clear beginning and ending moment."
+        elif duration <= 10:
+            scenes = 2
+            scene_guide = "2 scenes (~5s each). Scene 1 sets up the situation, Scene 2 delivers the payoff/resolution."
+        else:
+            scenes = max(3, duration // 5)
+            scene_guide = f"{scenes} scenes (~{duration // scenes}s each). Build a mini-story: setup -> tension/development -> climax/resolution."
+
+        system_instruction = f"""You are a cinematic video storyteller. Transform the script below into a {duration}-second {orientation} video prompt that tells a COMPELLING VISUAL STORY.
+
+FORMAT: {duration}-second {orientation} video.
+SCENES: {scene_guide}
+
+STORYTELLING RULES:
+1. START with: "{duration}-second {orientation} video."
+2. Write the prompt as a CONTINUOUS NARRATIVE that describes what happens on screen moment by moment.
+3. Use CHRONOLOGICAL storytelling: "A character does X... then Y happens... finally Z."
+4. Include specific character actions, emotions, and reactions - make the viewer FEEL the story.
+5. Describe camera movements AS PART of the narrative (e.g., "the camera slowly pulls back to reveal...").
+6. Use vivid, cinematic language: lighting, atmosphere, mood, colors, textures.
+7. Each scene transition should feel natural: "Cut to...", "The scene shifts to...", "We see..."
+8. The story must have a clear ARC: attention-grabbing opening -> development -> satisfying conclusion.
+9. Keep between 600-1200 characters. Dense but clear.
+10. Output ONLY the prompt text.
+
+WHAT MAKES A GOOD VIDEO PROMPT:
+- BAD: "A person standing in a gym. Weights on the floor. Motivational atmosphere."
+- GOOD: "A determined athlete steps into a dimly lit gym at dawn, chalk dust floating in golden light beams. She grips the barbell, eyes locked forward with fierce concentration. In one explosive motion she lifts, every muscle engaged, the camera tracking upward with the movement as sweat catches the light. She holds the weight overhead, a triumphant smile breaking across her face as the camera pulls back to reveal the empty gym around her."
+
+The GOOD example tells a story with character, emotion, action, and a satisfying arc."""
+
+        if ctx.get("brand_style"):
+            system_instruction += f"\n\nVISUAL STYLE (apply consistently): {ctx['brand_style']}"
+        if ctx.get("niche"):
+            system_instruction += f"\nContent niche: {ctx['niche']}."
+        if ctx.get("niche_description"):
+            system_instruction += f"\nNiche details: {ctx['niche_description']}"
+        if ctx.get("content_style"):
+            system_instruction += f"\nTone/style: {ctx['content_style']}"
 
         user_content = (
-            f"Hook: {script.get('hook', '')}\n"
-            f"Body: {script.get('body', '')}\n"
-            f"CTA: {script.get('cta', '')}\n"
-            f"Visual cues: {json.dumps(script.get('visual_cues', []), ensure_ascii=False)}"
+            f"Create a {duration}-second video prompt based on this script:\n\n"
+            f"HOOK (opening moment): {script.get('hook', '')}\n"
+            f"STORY (main content): {script.get('body', '')}\n"
+            f"ENDING (call to action): {script.get('cta', '')}\n"
+            f"VISUAL IDEAS: {json.dumps(script.get('visual_cues', []), ensure_ascii=False)}"
         )
 
         try:
@@ -145,7 +191,7 @@ class GeminiClient:
                 contents=user_content,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=0.7,
+                    temperature=0.8,
                     max_output_tokens=1024,
                 ),
             )

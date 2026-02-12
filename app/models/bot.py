@@ -48,6 +48,7 @@ class Bot(Base):
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     contact_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     script_system_prompt: Mapped[str] = mapped_column(Text, default="")
+    brand_style: Mapped[str] = mapped_column(Text, default="")
     trend_sources: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
 
     created_at: Mapped[Optional[datetime]] = mapped_column(

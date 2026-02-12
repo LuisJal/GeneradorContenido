@@ -23,15 +23,39 @@ from app.utils.encryption import FieldEncryptor
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
-# Register custom Jinja2 filter for extracting basename from paths
+# Register custom Jinja2 filters
 import os
+from app.config import settings as app_settings
 templates.env.filters["basename"] = lambda path: os.path.basename(path) if path else ""
+
+
+def _video_url(path: str) -> str:
+    """Convert an absolute video file path to a URL relative to /static/videos/."""
+    if not path:
+        return ""
+    try:
+        return "/static/videos/" + str(Path(path).relative_to(app_settings.videos_dir))
+    except ValueError:
+        return "/static/videos/" + os.path.basename(path)
+
+
+templates.env.filters["video_url"] = _video_url
 
 
 def _available_templates():
     """List available bot template names."""
     templates_dir = Path(__file__).resolve().parent.parent.parent / "bot_templates"
     return [p.stem for p in templates_dir.glob("*.json")]
+
+
+@router.get("/legal/terms", response_class=HTMLResponse)
+async def legal_terms(request: Request):
+    return templates.TemplateResponse(request, "legal_terms.html")
+
+
+@router.get("/legal/privacy", response_class=HTMLResponse)
+async def legal_privacy(request: Request):
+    return templates.TemplateResponse(request, "legal_privacy.html")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -81,6 +105,7 @@ async def bot_create_submit(
     niche: str = Form(...),
     niche_description: str = Form(""),
     content_style: str = Form(""),
+    brand_style: str = Form(""),
     language: str = Form("es"),
     videos_per_day: int = Form(1),
     schedule_times: str = Form("09:00"),
@@ -97,6 +122,7 @@ async def bot_create_submit(
             niche=niche,
             niche_description=niche_description,
             content_style=content_style,
+            brand_style=brand_style,
             language=language,
             videos_per_day=videos_per_day,
             posting_schedule=PostingSchedule(
@@ -155,6 +181,7 @@ async def bot_edit_submit(
     db: Session = Depends(get_db),
     niche_description: str = Form(""),
     content_style: str = Form(""),
+    brand_style: str = Form(""),
     language: str = Form("es"),
     videos_per_day: int = Form(1),
     schedule_times: str = Form("09:00"),
@@ -169,6 +196,7 @@ async def bot_edit_submit(
         data = BotUpdate(
             niche_description=niche_description or None,
             content_style=content_style or None,
+            brand_style=brand_style or None,
             language=language,
             videos_per_day=videos_per_day,
             posting_schedule=PostingSchedule(
@@ -211,6 +239,30 @@ async def bot_toggle(request: Request, slug: str, db: Session = Depends(get_db))
     except RuntimeError:
         pass  # Scheduler not initialized (e.g. in tests)
 
+    # If called from bot detail page (HTMX), auto-generate videos on enable
+    if request.headers.get("HX-Request"):
+        if bot.is_enabled:
+            # Auto-generate videos_per_day videos
+            generated = []
+            errors = []
+            for i in range(bot.videos_per_day):
+                try:
+                    from app.services.scheduler_service import trigger_now
+                    content = await trigger_now(bot, db)
+                    generated.append(content.id)
+                except Exception as e:
+                    errors.append(str(e))
+                    break  # Stop on first error
+
+            if generated:
+                ids = ", ".join(f"#{cid}" for cid in generated)
+                msg = f'<div class="flash-success">Bot activado. Generando {len(generated)} video(s): {ids}. El video polling los procesara automaticamente.</div>'
+            else:
+                msg = f'<div class="flash-error">Bot activado pero fallo al generar: {errors[0] if errors else "error desconocido"}</div>'
+            return HTMLResponse(msg)
+        else:
+            return HTMLResponse('<div class="flash-success">Bot desactivado.</div>')
+
     return templates.TemplateResponse(request, "partials/bot_card.html", {
         "bot": bot,
     })
@@ -224,15 +276,13 @@ async def bot_run_now(request: Request, slug: str, db: Session = Depends(get_db)
     try:
         from app.services.scheduler_service import trigger_now
         content = await trigger_now(bot, db)
-        return templates.TemplateResponse(request, "partials/bot_card.html", {
-            "bot": bot,
-            "message": f"Pipeline iniciado (contenido #{content.id})",
-        })
+        return HTMLResponse(
+            f'<div class="flash-success">Pipeline iniciado: contenido <a href="/bots/{slug}/content/{content.id}">#{content.id}</a> en estado {content.status}. El video se procesara automaticamente.</div>'
+        )
     except Exception as e:
-        return templates.TemplateResponse(request, "partials/bot_card.html", {
-            "bot": bot,
-            "error": str(e),
-        })
+        return HTMLResponse(
+            f'<div class="flash-error">Error al ejecutar: {e}</div>'
+        )
 
 
 @router.get("/bots/{slug}/content", response_class=HTMLResponse)
@@ -444,12 +494,18 @@ async def content_reject(
     if not item:
         return HTMLResponse("Content not found", status_code=404)
 
-    item.approval_status = "rejected"
-    item.status = ContentStatus.REJECTED.value
+    # Delete video file from disk to free storage
+    if item.video_file_path:
+        video_path = Path(item.video_file_path)
+        if video_path.exists():
+            video_path.unlink()
+
+    # Delete the content item entirely from DB
+    db.delete(item)
     db.commit()
 
     return HTMLResponse(
-        '<div class="flash-error">Contenido rechazado.</div>',
+        '<div class="flash-success">Contenido rechazado y eliminado.</div>',
     )
 
 

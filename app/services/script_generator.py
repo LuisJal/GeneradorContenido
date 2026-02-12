@@ -138,6 +138,19 @@ async def generate_content_descriptions(
         ) from exc
 
 
+def _build_bot_context(bot: Bot) -> dict:
+    """Build a context dict from bot fields for prompt generation."""
+    return {
+        "niche": bot.niche or "",
+        "niche_description": bot.niche_description or "",
+        "content_style": bot.content_style or "",
+        "brand_style": bot.brand_style or "",
+        "video_duration_seconds": bot.video_duration_seconds,
+        "video_aspect_ratio": bot.video_aspect_ratio or "9:16",
+        "language": bot.language or "es",
+    }
+
+
 async def generate_video_prompt(bot: Bot, script: dict) -> str:
     """Convert a script dict into a visual prompt for AI video generation.
 
@@ -146,9 +159,12 @@ async def generate_video_prompt(bot: Bot, script: dict) -> str:
     logger.info("Generating video prompt for bot='%s'", bot.name)
 
     client = _get_client(bot)
+    bot_context = _build_bot_context(bot)
 
     try:
-        prompt = await asyncio.to_thread(client.generate_video_prompt, script)
+        prompt = await asyncio.to_thread(
+            client.generate_video_prompt, script, bot_context
+        )
         logger.info("Video prompt generated for bot='%s'", bot.name)
         return prompt
     except GeminiClientError:

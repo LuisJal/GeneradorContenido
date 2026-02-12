@@ -16,6 +16,7 @@ class BotCreate(BaseModel):
     niche: str = Field(..., min_length=1, max_length=100)
     niche_description: str = ""
     content_style: str = ""
+    brand_style: str = ""
     language: str = "es"
     videos_per_day: int = Field(default=1, ge=1, le=10)
     posting_schedule: PostingSchedule = Field(default_factory=PostingSchedule)
@@ -36,6 +37,7 @@ class BotUpdate(BaseModel):
     niche: Optional[str] = None
     niche_description: Optional[str] = None
     content_style: Optional[str] = None
+    brand_style: Optional[str] = None
     language: Optional[str] = None
     is_enabled: Optional[bool] = None
     videos_per_day: Optional[int] = Field(default=None, ge=1, le=10)

@@ -10,27 +10,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     });
 
-    // HTMX: loading state on approve button
+    // HTMX: loading state for buttons with .btn-loading-trigger or .approve-btn
     document.body.addEventListener('htmx:beforeRequest', function(event) {
-        var trigger = event.detail.elt;
-        if (trigger && trigger.classList.contains('approve-btn')) {
-            trigger.setAttribute('aria-busy', 'true');
-            trigger.disabled = true;
+        var btn = event.detail.elt;
+        if (!btn) return;
+
+        if (btn.classList.contains('btn-loading-trigger') || btn.classList.contains('approve-btn')) {
+            btn.disabled = true;
+            btn.classList.add('is-loading');
+            var textEl = btn.querySelector('.btn-text');
+            var spinnerEl = btn.querySelector('.btn-spinner');
+            if (textEl && spinnerEl) {
+                textEl.style.display = 'none';
+                spinnerEl.style.display = 'inline';
+            } else {
+                btn.dataset.originalText = btn.textContent;
+                btn.textContent = 'Procesando...';
+            }
         }
     });
 
     document.body.addEventListener('htmx:afterRequest', function(event) {
-        var trigger = event.detail.elt;
-        if (trigger && trigger.classList.contains('approve-btn')) {
-            trigger.removeAttribute('aria-busy');
-            trigger.disabled = false;
+        var btn = event.detail.elt;
+        if (!btn) return;
+
+        if (btn.classList.contains('btn-loading-trigger') || btn.classList.contains('approve-btn')) {
+            btn.disabled = false;
+            btn.classList.remove('is-loading');
+            var textEl = btn.querySelector('.btn-text');
+            var spinnerEl = btn.querySelector('.btn-spinner');
+            if (textEl && spinnerEl) {
+                textEl.style.display = 'inline';
+                spinnerEl.style.display = 'none';
+            } else if (btn.dataset.originalText) {
+                btn.textContent = btn.dataset.originalText;
+                delete btn.dataset.originalText;
+            }
         }
     });
 
     // Scroll to result after HTMX swap
     document.body.addEventListener('htmx:afterSwap', function(event) {
         var target = event.detail.target;
-        if (target && target.id === 'approval-result') {
+        if (target && (target.id === 'approval-result' || target.id === 'action-result')) {
             target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     });

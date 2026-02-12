@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Kling
     kling_api_key: str = ""
 
+    # AIML API (proxy for Kling and other video models)
+    aiml_api_key: str = ""
+
     # Logging
     log_level: str = "INFO"
 

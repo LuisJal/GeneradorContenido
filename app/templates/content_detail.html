@@ -20,7 +20,7 @@
     {% if item.video_file_path %}
     <div class="video-container">
         <video controls preload="metadata">
-            <source src="/static/videos/{{ item.video_file_path | basename }}" type="video/mp4">
+            <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
             Tu navegador no soporta video HTML5.
         </video>
     </div>
@@ -83,7 +83,7 @@
 {% if item.video_file_path %}
 <div class="video-container">
     <video controls preload="metadata">
-        <source src="/static/videos/{{ item.video_file_path | basename }}" type="video/mp4">
+        <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
         Tu navegador no soporta video HTML5.
     </video>
 </div>

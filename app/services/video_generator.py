@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Union
 
 from app.config import settings
+from app.integrations.aiml_kling_client import AimlKlingClient
 from app.integrations.kling_client import KlingClient
 from app.integrations.veo_client import Veo3Client
 from app.models.bot import Bot
@@ -53,7 +54,17 @@ def _get_kling_client(bot: Bot) -> KlingClient:
     return KlingClient(api_key=api_key)
 
 
-def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient]:
+def _get_aiml_kling_client(bot: Bot) -> AimlKlingClient:
+    """Build an :class:`AimlKlingClient` using global settings."""
+    api_key = settings.aiml_api_key
+    if not api_key:
+        raise ValueError(
+            "AIML API key is not configured (set AIML_API_KEY in .env)"
+        )
+    return AimlKlingClient(api_key=api_key)
+
+
+def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient, AimlKlingClient]:
     """Return the appropriate video client based on ``bot.video_provider``."""
     provider = bot.video_provider
 
@@ -61,6 +72,8 @@ def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient]:
         return _get_veo3_client(bot)
     if provider == "kling3":
         return _get_kling_client(bot)
+    if provider == "aiml_kling":
+        return _get_aiml_kling_client(bot)
 
     raise ValueError(f"Unsupported video provider: {provider!r}")
 

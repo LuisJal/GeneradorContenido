@@ -52,18 +52,19 @@
         hx-post="/bots/{{ bot.slug }}/toggle"
         hx-target="#action-result"
         hx-swap="innerHTML"
-        class="btn-action"
+        class="btn-action btn-loading-trigger"
     >
-        {% if bot.is_enabled %}Desactivar{% else %}Activar{% endif %}
+        {% if bot.is_enabled %}Desactivar{% else %}Activar (genera {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}){% endif %}
     </button>
     <button
         hx-post="/bots/{{ bot.slug }}/run"
         hx-target="#action-result"
         hx-swap="innerHTML"
-        class="btn-gradient"
+        class="btn-gradient btn-loading-trigger"
         style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
     >
-        Ejecutar ahora
+        <span class="btn-text">Ejecutar ahora</span>
+        <span class="btn-spinner" style="display:none;">Generando...</span>
     </button>
 </div>
 <div id="action-result"></div>

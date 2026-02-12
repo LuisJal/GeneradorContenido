@@ -22,6 +22,10 @@
         <label for="content_style">Estilo de contenido</label>
         <input type="text" id="content_style" name="content_style" value="{{ bot.content_style }}">
 
+        <label for="brand_style">Identidad visual del canal</label>
+        <textarea id="brand_style" name="brand_style" rows="4" placeholder="Describe el estilo visual consistente para todos los videos. Ej: 'Estilo anime shonen, colores vibrantes neon, escenas de accion dinamicas con efectos de energia, transiciones rapidas tipo manga...'">{{ bot.brand_style }}</textarea>
+        <small>Define la estetica visual que se aplicara a TODOS los videos del bot para mantener coherencia en el canal.</small>
+
         <label for="script_system_prompt">System prompt para guiones</label>
         <textarea id="script_system_prompt" name="script_system_prompt" rows="5">{{ bot.script_system_prompt }}</textarea>
 
@@ -40,22 +44,24 @@
 
         <label for="video_provider">Proveedor</label>
         <select id="video_provider" name="video_provider">
-            <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3</option>
-            <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0</option>
+            <option value="aiml_kling" {{ "selected" if bot.video_provider == "aiml_kling" }}>Kling V3 via AIML (3-15s, economico)</option>
+            <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3 (max 8s)</option>
+            <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0 (directo)</option>
         </select>
 
         <label for="video_duration_seconds">Duracion (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="5" max="60">
+        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="15">
 
         <label for="videos_per_day">Videos por dia</label>
         <input type="number" id="videos_per_day" name="videos_per_day" value="{{ bot.videos_per_day }}" min="1" max="10">
     </fieldset>
 
     <fieldset>
-        <legend>Programacion</legend>
+        <legend>Programacion de publicacion</legend>
 
-        <label for="schedule_times">Horarios</label>
+        <label for="schedule_times">Horarios de publicacion</label>
         <input type="text" id="schedule_times" name="schedule_times" value="{{ bot.posting_schedule.get('times', ['09:00']) | join(', ') }}">
+        <small>Horas a las que se publicara contenido aprobado (separar con coma).</small>
 
         <label for="schedule_timezone">Zona horaria</label>
         <input type="text" id="schedule_timezone" name="schedule_timezone" value="{{ bot.posting_schedule.get('timezone', 'Europe/Madrid') }}">

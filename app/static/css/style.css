@@ -255,6 +255,30 @@ a:hover { color: var(--gc-accent-hover); }
     box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
 }
 
+/* Loading state for buttons */
+.is-loading {
+    opacity: 0.7;
+    cursor: wait !important;
+    pointer-events: none;
+}
+.btn-spinner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.btn-spinner::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .btn-action {
     display: inline-flex;
     align-items: center;

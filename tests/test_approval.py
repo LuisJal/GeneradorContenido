@@ -67,19 +67,20 @@ def test_approve_updates_descriptions_and_publishes(client):
     assert item.description_youtube == "Updated YT"
 
 
-def test_reject_updates_status(client):
-    """POST reject should mark content as rejected."""
+def test_reject_deletes_content(client):
+    """POST reject should delete video file and content record."""
     db = _get_db()
     bot, item = _create_bot_and_content(db)
+    item_id = item.id
 
-    resp = client.post(f"/bots/{bot.slug}/content/{item.id}/reject")
+    resp = client.post(f"/bots/{bot.slug}/content/{item_id}/reject")
 
     assert resp.status_code == 200
-    assert "rechazado" in resp.text.lower()
+    assert "rechazado" in resp.text.lower() or "eliminado" in resp.text.lower()
 
-    db.refresh(item)
-    assert item.approval_status == "rejected"
-    assert item.status == ContentStatus.REJECTED.value
+    # Content should be deleted from DB
+    deleted = db.query(ContentItem).filter(ContentItem.id == item_id).first()
+    assert deleted is None
 
 
 def test_approve_404_nonexistent_content(client):

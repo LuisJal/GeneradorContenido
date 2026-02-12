@@ -47,6 +47,20 @@ def _video_url(path: str) -> str:
 templates.env.filters["video_url"] = _video_url
 
 
+def _from_json(value: str) -> dict:
+    """Parse a JSON string to a dict, returning empty dict on failure."""
+    import json as _json
+    if not value:
+        return {}
+    try:
+        return _json.loads(value)
+    except (TypeError, _json.JSONDecodeError):
+        return {}
+
+
+templates.env.filters["from_json"] = _from_json
+
+
 def _available_templates():
     """List available bot template names."""
     templates_dir = Path(__file__).resolve().parent.parent.parent / "bot_templates"

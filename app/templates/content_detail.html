@@ -207,18 +207,101 @@
 </div>
 {% endif %}
 
-<!-- Script and prompt details -->
+<!-- Script / Production Document details -->
 {% if item.script %}
+{% set script_data = item.script | from_json %}
+
+{% if script_data.storyboard is defined and script_data.storyboard %}
+<!-- ===== RICH STORYBOARD VIEW ===== -->
+<div style="margin-top:var(--space-6);">
+    {% if script_data.title %}
+    <h2 style="font-size:var(--text-lg);margin-bottom:var(--space-4);">{{ script_data.title }}</h2>
+    {% endif %}
+
+    {% if script_data.characters %}
+    <div class="card mb-4">
+        <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);color:var(--color-text-secondary);">Personajes</h3>
+        <div class="storyboard-characters">
+            {% for char in script_data.characters %}
+            <div class="storyboard-char">
+                <strong>{{ char.name }}</strong>
+                <p style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin:var(--space-1) 0 0;">{{ char.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);color:var(--color-text-secondary);">Storyboard</h3>
+        <div class="storyboard-timeline">
+            {% for scene in script_data.storyboard %}
+            <div class="storyboard-scene">
+                <div class="scene-timestamp">{{ scene.timestamp }}</div>
+                <div class="scene-content">
+                    <p class="scene-visual">{{ scene.visual }}</p>
+                    {% if scene.dialogue %}
+                    <p class="scene-dialogue">"{{ scene.dialogue }}"</p>
+                    {% endif %}
+                    {% if scene.get('expression') %}
+                    <p class="scene-meta">{{ scene.expression }}</p>
+                    {% endif %}
+                    {% if scene.get('music_direction') %}
+                    <p class="scene-meta">{{ scene.music_direction }}</p>
+                    {% endif %}
+                    {% if scene.get('camera') %}
+                    <p class="scene-meta">{{ scene.camera }}</p>
+                    {% endif %}
+                    {% if scene.get('overlay_text') %}
+                    <p class="scene-meta">Overlay: {{ scene.overlay_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if script_data.music_description %}
+    <div class="card mb-4">
+        <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-2);color:var(--color-text-secondary);">Musica</h3>
+        <p style="font-size:var(--text-sm);">{{ script_data.music_description }}</p>
+    </div>
+    {% endif %}
+
+    {% if script_data.video_prompt or item.video_prompt %}
+    <div class="card mb-4">
+        <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-2);color:var(--color-text-secondary);">Video Prompt</h3>
+        <pre style="white-space:pre-wrap;font-size:var(--text-sm);">{{ script_data.video_prompt or item.video_prompt }}</pre>
+    </div>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- ===== LEGACY SCRIPT VIEW ===== -->
 <details style="margin-top:var(--space-6);">
     <summary>Guion generado</summary>
+    {% if script_data.hook is defined %}
+    <div class="card" style="margin-top:var(--space-3);">
+        <p><strong>Hook:</strong> {{ script_data.hook }}</p>
+        <p><strong>Body:</strong> {{ script_data.body }}</p>
+        <p><strong>CTA:</strong> {{ script_data.cta }}</p>
+        {% if script_data.visual_cues %}
+        <p><strong>Visual cues:</strong></p>
+        <ul>{% for cue in script_data.visual_cues %}<li>{{ cue }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    {% else %}
     <pre>{{ item.script }}</pre>
+    {% endif %}
 </details>
-{% endif %}
 
 {% if item.video_prompt %}
 <details>
     <summary>Prompt de video</summary>
     <p>{{ item.video_prompt }}</p>
 </details>
+{% endif %}
+{% endif %}
+
 {% endif %}
 {% endblock %}

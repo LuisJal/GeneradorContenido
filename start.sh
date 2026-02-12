@@ -36,13 +36,25 @@ fi
 
 echo -e "  ✓ Python: $($PYTHON --version 2>&1)"
 
-# ── 2. Instalar/actualizar dependencias ──
-echo -e "${YELLOW}[2/5]${NC} Actualizando dependencias..."
+# ── 2. Verificar dependencias ──
+echo -e "${YELLOW}[2/5]${NC} Verificando dependencias..."
 
 if [ -f requirements.txt ]; then
-    $PYTHON -m pip install -q --upgrade pip 2>/dev/null
-    $PYTHON -m pip install -q -r requirements.txt 2>/dev/null
-    echo -e "  ✓ Dependencias actualizadas"
+    # Comprobar rapido si falta alguna dependencia clave
+    MISSING=$($PYTHON -c "
+import importlib, sys
+for mod in ['fastapi', 'uvicorn', 'sqlalchemy', 'jinja2', 'httpx']:
+    try: importlib.import_module(mod)
+    except ImportError: print(mod); sys.exit(1)
+" 2>&1) || true
+
+    if [ -n "$MISSING" ]; then
+        echo -e "  Instalando dependencias (puede tardar la primera vez)..."
+        $PYTHON -m pip install -r requirements.txt
+        echo -e "  ✓ Dependencias instaladas"
+    else
+        echo -e "  ✓ Dependencias OK"
+    fi
 else
     echo -e "  ${YELLOW}⚠ No hay requirements.txt, saltando...${NC}"
 fi

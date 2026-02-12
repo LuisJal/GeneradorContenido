@@ -21,6 +21,8 @@ ENCRYPTED_KEYS = {
     "elevenlabs_api_key",
     "hedra_api_key",
     "telegram_bot_token",
+    "football_data_api_key",
+    "gnews_api_key",
 }
 
 # All known settings with Spanish descriptions
@@ -35,6 +37,8 @@ SETTING_DEFINITIONS: Dict[str, str] = {
     "elevenlabs_api_key": "Clave API de ElevenLabs (voz para Talking Head)",
     "hedra_api_key": "Clave API de Hedra (video lip-sync Character-3)",
     "telegram_bot_token": "Token del bot de Telegram (notificaciones opcionales)",
+    "football_data_api_key": "Clave API de Football-Data.org (partidos y clasificaciones)",
+    "gnews_api_key": "Clave API de GNews (noticias deportivas)",
 }
 
 

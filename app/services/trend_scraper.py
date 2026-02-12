@@ -1,4 +1,8 @@
-"""Service for discovering trending topics from Google Trends and Reddit."""
+"""Service for discovering trending topics from multiple news sources.
+
+Supported sources: Google Trends RSS, Reddit, custom RSS feeds,
+Football-Data.org (match results/fixtures), and GNews (news articles).
+"""
 
 from __future__ import annotations
 
@@ -130,6 +134,196 @@ def scrape_reddit(subreddit: str, limit: int = 10) -> List[str]:
     return topics
 
 
+def scrape_rss_feeds(feed_urls: List[str], limit: int = 10) -> List[str]:
+    """Fetch recent article titles from a list of RSS feed URLs.
+
+    Args:
+        feed_urls: RSS feed URLs to parse (e.g. Marca, AS sport feeds).
+        limit: Maximum number of articles to extract per feed (default: ``10``).
+
+    Returns:
+        Combined list of article title strings from all feeds.
+    """
+    logger.info("Fetching RSS feeds from %d sources", len(feed_urls))
+
+    all_titles: List[str] = []
+
+    for url in feed_urls:
+        try:
+            feed = feedparser.parse(url)
+
+            if not feed.entries:
+                logger.warning("No entries found in RSS feed: %s", url)
+                continue
+
+            for entry in feed.entries[:limit]:
+                title: str = entry.get("title", "")
+                if title and title.strip():
+                    all_titles.append(title.strip())
+
+        except Exception as exc:
+            logger.error("Failed to parse RSS feed %s: %s", url, exc)
+            continue
+
+    logger.info("RSS feeds returned %d total articles", len(all_titles))
+    return all_titles
+
+
+def scrape_football_data(
+    team_id: int = 86,
+    api_key: Optional[str] = None,
+    limit: int = 5,
+) -> List[str]:
+    """Fetch recent and upcoming match info from Football-Data.org API.
+
+    Args:
+        team_id: Football-Data.org team ID (``86`` = Real Madrid).
+        api_key: API key for Football-Data.org (free tier: 10 req/min).
+            If ``None``, returns an empty list.
+        limit: Maximum number of matches to fetch (default: ``5``).
+
+    Returns:
+        Topic strings such as ``"Real Madrid 3-1 Barcelona (La Liga, Jornada 15)"``
+        or ``"Próximo partido: Real Madrid vs Atlético (Saturday 20:00)"``.
+    """
+    if not api_key:
+        logger.warning("Football-Data.org API key not configured; skipping")
+        return []
+
+    url = f"https://api.football-data.org/v4/teams/{team_id}/matches"
+    params = {"status": "FINISHED,SCHEDULED", "limit": limit}
+    headers = {"X-Auth-Token": api_key}
+
+    logger.info("Fetching Football-Data.org matches for team_id=%d", team_id)
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.get(url, headers=headers, params=params)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Football-Data.org API returned HTTP %s: %s",
+            exc.response.status_code,
+            exc,
+        )
+        return []
+    except httpx.RequestError as exc:
+        logger.error("Network error fetching Football-Data.org: %s", exc)
+        return []
+
+    try:
+        data = response.json()
+    except Exception as exc:
+        logger.error("Failed to decode Football-Data.org JSON: %s", exc)
+        return []
+
+    matches = data.get("matches", [])
+    topics: List[str] = []
+
+    for match in matches:
+        status = match.get("status")
+        home = match.get("homeTeam", {}).get("name", "")
+        away = match.get("awayTeam", {}).get("name", "")
+        competition = match.get("competition", {}).get("name", "")
+        matchday = match.get("matchday")
+
+        if status == "FINISHED":
+            score = match.get("score", {}).get("fullTime", {})
+            home_goals = score.get("home")
+            away_goals = score.get("away")
+            if home_goals is not None and away_goals is not None:
+                topic = f"{home} {home_goals}-{away_goals} {away}"
+                if competition and matchday:
+                    topic += f" ({competition}, Jornada {matchday})"
+                topics.append(topic)
+
+        elif status == "SCHEDULED":
+            utc_date = match.get("utcDate", "")
+            if utc_date:
+                try:
+                    from datetime import datetime, timezone
+
+                    dt = datetime.fromisoformat(utc_date.replace("Z", "+00:00"))
+                    day_name = dt.strftime("%A")
+                    time_str = dt.strftime("%H:%M")
+                    topic = (
+                        f"Próximo partido: {home} vs {away} ({day_name} {time_str})"
+                    )
+                except Exception:
+                    topic = f"Próximo partido: {home} vs {away}"
+            else:
+                topic = f"Próximo partido: {home} vs {away}"
+            topics.append(topic)
+
+    logger.info("Football-Data.org returned %d match topics", len(topics))
+    return topics
+
+
+def scrape_gnews(
+    query: str = "real madrid",
+    api_key: Optional[str] = None,
+    language: str = "es",
+    limit: int = 10,
+) -> List[str]:
+    """Fetch news article titles from the GNews API.
+
+    Args:
+        query: Search query (default: ``"real madrid"``).
+        api_key: GNews API key (free tier: 100 req/day).
+            If ``None``, returns an empty list.
+        language: Language code (default: ``"es"``).
+        limit: Maximum articles to fetch (default: ``10``).
+
+    Returns:
+        A list of article title strings.
+    """
+    if not api_key:
+        logger.warning("GNews API key not configured; skipping")
+        return []
+
+    url = "https://gnews.io/api/v4/search"
+    params = {
+        "q": query,
+        "lang": language,
+        "max": limit,
+        "token": api_key,
+    }
+
+    logger.info("Fetching GNews articles for query='%s' lang=%s", query, language)
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code
+        if status_code == 403:
+            logger.warning("GNews daily quota exceeded (free tier: 100 req/day)")
+        else:
+            logger.error("GNews API returned HTTP %s: %s", status_code, exc)
+        return []
+    except httpx.RequestError as exc:
+        logger.error("Network error fetching GNews: %s", exc)
+        return []
+
+    try:
+        data = response.json()
+    except Exception as exc:
+        logger.error("Failed to decode GNews JSON: %s", exc)
+        return []
+
+    articles = data.get("articles", [])
+    topics: List[str] = []
+
+    for article in articles:
+        title: Optional[str] = article.get("title")
+        if title and title.strip():
+            topics.append(title.strip())
+
+    logger.info("GNews returned %d article titles", len(topics))
+    return topics
+
+
 def get_trending_topics(bot: Any) -> List[str]:
     """Combine trending topics from all configured sources for a bot.
 
@@ -169,6 +363,44 @@ def get_trending_topics(bot: Any) -> List[str]:
     for subreddit in subreddits:
         reddit_topics = scrape_reddit(subreddit=subreddit)
         all_topics.extend(reddit_topics)
+
+    # --- RSS Feeds ---
+    rss_feeds: List[str] = trend_sources.get("rss_feeds", [])
+    if rss_feeds:
+        rss_topics = scrape_rss_feeds(feed_urls=rss_feeds)
+        all_topics.extend(rss_topics)
+
+    # --- Football-Data.org ---
+    football_config: dict = trend_sources.get("football_data", {})
+    if football_config.get("enabled", False):
+        from app.database import sync_engine
+        from app.services.settings_manager import get_setting
+
+        team_id = football_config.get("team_id", 86)
+        with Session(sync_engine) as sess:
+            fd_api_key = get_setting(sess, "football_data_api_key")
+        if fd_api_key:
+            football_topics = scrape_football_data(
+                team_id=team_id, api_key=fd_api_key
+            )
+            all_topics.extend(football_topics)
+
+    # --- GNews ---
+    gnews_config: dict = trend_sources.get("gnews", {})
+    if gnews_config.get("enabled", False):
+        from app.database import sync_engine
+        from app.services.settings_manager import get_setting
+
+        gnews_query = gnews_config.get("query", bot.niche)
+        with Session(sync_engine) as sess:
+            gn_api_key = get_setting(sess, "gnews_api_key")
+        if gn_api_key:
+            gnews_topics = scrape_gnews(
+                query=gnews_query,
+                api_key=gn_api_key,
+                language=getattr(bot, "language", "es"),
+            )
+            all_topics.extend(gnews_topics)
 
     # Deduplicate while preserving order
     seen: set[str] = set()

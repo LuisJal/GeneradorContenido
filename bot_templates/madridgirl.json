@@ -25,6 +25,14 @@
         "rss_feeds": [
             "https://e00-marca.uecdn.es/rss/futbol/real-madrid.xml",
             "https://as.com/rss/tags/real_madrid.xml"
-        ]
+        ],
+        "football_data": {
+            "enabled": true,
+            "team_id": 86
+        },
+        "gnews": {
+            "enabled": true,
+            "query": "real madrid"
+        }
     }
 }

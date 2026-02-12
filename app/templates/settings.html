@@ -85,6 +85,24 @@
     </fieldset>
 
     <fieldset class="settings-fieldset">
+        <legend>Football-Data.org (partidos y clasificaciones)</legend>
+
+        <label for="football_data_api_key">Football-Data.org API Key</label>
+        <input type="password" id="football_data_api_key" name="football_data_api_key"
+               placeholder="{% if current.football_data_api_key %}{{ current.football_data_api_key }}{% else %}Tu clave API de Football-Data.org{% endif %}">
+        <small>API gratuita para partidos y clasificaciones (10 req/min). Obtenla en <a href="https://www.football-data.org/client/register" target="_blank" rel="noopener">football-data.org</a></small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>GNews (noticias deportivas)</legend>
+
+        <label for="gnews_api_key">GNews API Key</label>
+        <input type="password" id="gnews_api_key" name="gnews_api_key"
+               placeholder="{% if current.gnews_api_key %}{{ current.gnews_api_key }}{% else %}Tu clave API de GNews{% endif %}">
+        <small>API gratuita para noticias (100 req/dia). Obtenla en <a href="https://gnews.io/" target="_blank" rel="noopener">gnews.io</a></small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
         <legend>Telegram (notificaciones opcionales)</legend>
 
         <label for="telegram_bot_token">Token del Bot de Telegram</label>

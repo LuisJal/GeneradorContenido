@@ -401,7 +401,7 @@ def test_content_detail_arc_siblings():
 
     response = client.get(f"/bots/{bot.slug}/content/{items[0].id}")
     assert response.status_code == 200
-    assert "Arco Narrativo" in response.text
+    assert "arc-chapter-link" in response.text
     assert "Cap 1" in response.text
     assert "Cap 2" in response.text
     assert "Cap 3" in response.text

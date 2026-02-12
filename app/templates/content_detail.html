@@ -2,30 +2,46 @@
 
 {% block title %}Contenido #{{ item.id }} - {{ bot.name }}{% endblock %}
 
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <a href="/bots/{{ bot.slug }}">{{ bot.name }}</a>
+    <span class="separator">/</span>
+    <a href="/bots/{{ bot.slug }}/content">Contenido</a>
+    <span class="separator">/</span>
+    <span class="current">#{{ item.id }}</span>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h1>Contenido #{{ item.id }}</h1>
-    <p>
-        <a href="/bots/{{ bot.slug }}/content">&larr; Lista de contenido</a>
-        &middot; {{ bot.name }}
-        &middot; <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
-    </p>
+<div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:var(--space-3);">
+    <div>
+        <h1 style="margin:0;font-size:var(--text-xl);">{{ item.trend_topic or item.custom_prompt or item.script_prompt or "Contenido #" ~ item.id }}</h1>
+        <div class="flex items-center gap-3" style="margin-top:var(--space-2);">
+            <span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span>
+            {% if item.story_arc_id %}
+            <span class="arc-badge">Cap {{ item.story_arc_chapter }}/{{ item.story_arc_total }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <a href="/bots/{{ bot.slug }}/content" class="btn btn-secondary btn-sm">Volver a lista</a>
 </div>
 
+<!-- Arc navigation -->
 {% if arc_siblings is defined and arc_siblings|length > 1 %}
 <div class="arc-nav">
-    <h3>Arco Narrativo ({{ arc_siblings|length }} capitulos)</h3>
     <div class="arc-chapters">
         {% for sibling in arc_siblings %}
         <a href="/bots/{{ bot.slug }}/content/{{ sibling.id }}"
            class="arc-chapter-link {{ 'active' if sibling.id == item.id }}">
             Cap {{ sibling.story_arc_chapter }}
-            <span class="status-badge status-{{ sibling.status }}" style="font-size:0.7rem;">{{ sibling.status }}</span>
+            <span class="status-badge status-{{ sibling.status }}" style="font-size:10px;padding:1px 5px;">{{ sibling.status | replace("_", " ") }}</span>
         </a>
         {% endfor %}
     </div>
     {% if item.story_arc_premise %}
-    <details>
+    <details style="margin-top:var(--space-3);">
         <summary>Premisa del arco</summary>
         <p>{{ item.story_arc_premise }}</p>
     </details>
@@ -34,112 +50,166 @@
 {% endif %}
 
 {% if item.status == "pending_approval" %}
-<!-- ===== APPROVAL SECTION ===== -->
-<div class="approval-section">
-    <h2>Revision y aprobacion</h2>
-
-    {% if item.video_file_path %}
-    <div class="video-container">
-        <video controls preload="metadata">
-            <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
-            Tu navegador no soporta video HTML5.
-        </video>
-    </div>
-    {% endif %}
-
-    <form>
-        <label for="desc_ig"><strong>Instagram</strong></label>
-        <textarea id="desc_ig" name="description_instagram" rows="3">{{ item.description_instagram or '' }}</textarea>
-
-        <label for="desc_yt"><strong>YouTube</strong></label>
-        <textarea id="desc_yt" name="description_youtube" rows="3">{{ item.description_youtube or '' }}</textarea>
-
-        <label for="desc_tt"><strong>TikTok</strong></label>
-        <textarea id="desc_tt" name="description_tiktok" rows="3">{{ item.description_tiktok or '' }}</textarea>
-
-        <div class="action-bar">
-            <button type="button" class="approve-btn"
-                hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/approve"
-                hx-include="closest form"
-                hx-target="#approval-result"
-                hx-swap="innerHTML">
-                Aprobar y Publicar
-            </button>
-            <button type="button" class="reject-btn"
-                hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/reject"
-                hx-target="#approval-result"
-                hx-swap="innerHTML"
-                hx-confirm="Seguro que quieres rechazar este contenido?">
-                Rechazar
-            </button>
+<!-- ===== APPROVAL LAYOUT: side-by-side ===== -->
+<div class="approval-layout">
+    <!-- Left: Video (sticky) -->
+    <div class="approval-video-col">
+        {% if item.video_file_path %}
+        <div class="video-container" style="margin-bottom:0;">
+            <video controls preload="metadata">
+                <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
+                Tu navegador no soporta video HTML5.
+            </video>
         </div>
-    </form>
-    <div id="approval-result"></div>
-</div>
-
-{% else %}
-<!-- ===== READ-ONLY VIEW ===== -->
-<div class="info-grid">
-    <div class="info-card">
-        <h3>Informacion</h3>
-        <div class="info-row"><span class="info-label">Tema</span><span class="info-value">{{ item.trend_topic or item.custom_prompt or "-" }}</span></div>
-        <div class="info-row"><span class="info-label">Estado</span><span class="info-value">{{ item.status }}</span></div>
-        <div class="info-row"><span class="info-label">Aprobacion</span><span class="info-value">{{ item.approval_status or "-" }}</span></div>
-        <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ item.video_provider or "-" }}</span></div>
-        <div class="info-row"><span class="info-label">Creado</span><span class="info-value">{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else "-" }}</span></div>
-        <div class="info-row"><span class="info-label">Completado</span><span class="info-value">{{ item.completed_at.strftime('%Y-%m-%d %H:%M:%S') if item.completed_at else "-" }}</span></div>
-        {% if item.error_message %}
-        <div class="info-row"><span class="info-label">Error</span><span class="info-value log-error">{{ item.error_message }}</span></div>
+        {% else %}
+        <div class="card" style="padding:var(--space-8);text-align:center;color:var(--color-text-tertiary);">
+            Video no disponible
+        </div>
         {% endif %}
     </div>
 
-    <div class="info-card">
-        <h3>Publicacion</h3>
-        <div class="info-row"><span class="info-label">Instagram</span><span class="info-value">{{ item.publish_instagram_id or "No publicado" }}</span></div>
-        <div class="info-row"><span class="info-label">YouTube</span><span class="info-value">{{ item.publish_youtube_id or "No publicado" }}</span></div>
-        <div class="info-row"><span class="info-label">TikTok</span><span class="info-value">{{ item.publish_tiktok_id or "No publicado" }}</span></div>
+    <!-- Right: Descriptions + Actions -->
+    <div class="approval-desc-col">
+        <form>
+            <div class="card mb-4">
+                <label for="desc_ig" style="margin-bottom:var(--space-2);">
+                    <strong style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-tertiary);">Instagram</strong>
+                </label>
+                <textarea id="desc_ig" name="description_instagram" rows="4" data-maxlength="2200">{{ item.description_instagram or '' }}</textarea>
+            </div>
+
+            <div class="card mb-4">
+                <label for="desc_yt" style="margin-bottom:var(--space-2);">
+                    <strong style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-tertiary);">YouTube</strong>
+                </label>
+                <textarea id="desc_yt" name="description_youtube" rows="4" data-maxlength="5000">{{ item.description_youtube or '' }}</textarea>
+            </div>
+
+            <div class="card mb-4">
+                <label for="desc_tt" style="margin-bottom:var(--space-2);">
+                    <strong style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-tertiary);">TikTok</strong>
+                </label>
+                <textarea id="desc_tt" name="description_tiktok" rows="4" data-maxlength="2200">{{ item.description_tiktok or '' }}</textarea>
+            </div>
+
+            <!-- Sticky action bar -->
+            <div class="approval-actions">
+                <button type="button" class="approve-btn"
+                    hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/approve"
+                    hx-include="closest form"
+                    hx-target="#approval-result"
+                    hx-swap="innerHTML">
+                    <span class="btn-text">Aprobar y Publicar</span>
+                    <span class="btn-spinner" style="display:none;">Publicando...</span>
+                </button>
+                <button type="button" class="reject-btn"
+                    hx-post="/bots/{{ bot.slug }}/content/{{ item.id }}/reject"
+                    hx-target="#approval-result"
+                    hx-swap="innerHTML"
+                    hx-confirm="Seguro que quieres rechazar este contenido?">
+                    Rechazar
+                </button>
+            </div>
+        </form>
+        <div id="approval-result"></div>
     </div>
 </div>
 
-{% if item.video_file_path %}
-<div class="video-container">
-    <video controls preload="metadata">
-        <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
-        Tu navegador no soporta video HTML5.
-    </video>
+{% else %}
+<!-- ===== READ-ONLY VIEW: main + sidebar ===== -->
+<div class="content-detail-layout">
+    <!-- Main column -->
+    <div class="content-detail-main">
+        {% if item.video_file_path %}
+        <div class="video-container">
+            <video controls preload="metadata">
+                <source src="{{ item.video_file_path | video_url }}" type="video/mp4">
+                Tu navegador no soporta video HTML5.
+            </video>
+        </div>
+        {% endif %}
+
+        {% if item.description_instagram or item.description_youtube or item.description_tiktok %}
+        <div class="desc-grid">
+            {% if item.description_instagram %}
+            <div class="desc-card">
+                <h4>Instagram</h4>
+                <p>{{ item.description_instagram }}</p>
+            </div>
+            {% endif %}
+
+            {% if item.description_youtube %}
+            <div class="desc-card">
+                <h4>YouTube</h4>
+                <p>{{ item.description_youtube }}</p>
+            </div>
+            {% endif %}
+
+            {% if item.description_tiktok %}
+            <div class="desc-card">
+                <h4>TikTok</h4>
+                <p>{{ item.description_tiktok }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="content-detail-sidebar">
+        <div class="card mb-4">
+            <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);">Informacion</h3>
+            <div class="info-row"><span class="info-label">Tema</span><span class="info-value">{{ item.trend_topic or item.custom_prompt or "-" }}</span></div>
+            <div class="info-row"><span class="info-label">Estado</span><span class="info-value"><span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span></span></div>
+            <div class="info-row"><span class="info-label">Aprobacion</span><span class="info-value">{{ item.approval_status or "-" }}</span></div>
+            <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ (item.video_provider or "-") | replace("_", " ") | title }}</span></div>
+            <div class="info-row"><span class="info-label">Creado</span><span class="info-value">{{ item.created_at.strftime('%d/%m/%Y %H:%M') if item.created_at else "-" }}</span></div>
+            <div class="info-row"><span class="info-label">Completado</span><span class="info-value">{{ item.completed_at.strftime('%d/%m/%Y %H:%M') if item.completed_at else "-" }}</span></div>
+            {% if item.error_message %}
+            <div class="info-row"><span class="info-label">Error</span><span class="info-value" style="color:var(--color-danger);">{{ item.error_message }}</span></div>
+            {% endif %}
+        </div>
+
+        <div class="card mb-4">
+            <h3 style="font-size:var(--text-sm);margin-bottom:var(--space-3);">Publicacion</h3>
+            <div class="info-row">
+                <span class="info-label">Instagram</span>
+                <span class="info-value">
+                    {% if item.publish_instagram_id %}
+                    <span style="color:var(--color-success);">Publicado</span>
+                    {% else %}
+                    <span style="color:var(--color-text-tertiary);">-</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">YouTube</span>
+                <span class="info-value">
+                    {% if item.publish_youtube_id %}
+                    <span style="color:var(--color-success);">Publicado</span>
+                    {% else %}
+                    <span style="color:var(--color-text-tertiary);">-</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">TikTok</span>
+                <span class="info-value">
+                    {% if item.publish_tiktok_id %}
+                    <span style="color:var(--color-success);">Publicado</span>
+                    {% else %}
+                    <span style="color:var(--color-text-tertiary);">-</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 
-{% if item.description_instagram or item.description_youtube or item.description_tiktok %}
-<div class="desc-grid">
-    {% if item.description_instagram %}
-    <div class="desc-card">
-        <h4>Instagram</h4>
-        <p>{{ item.description_instagram }}</p>
-    </div>
-    {% endif %}
-
-    {% if item.description_youtube %}
-    <div class="desc-card">
-        <h4>YouTube</h4>
-        <p>{{ item.description_youtube }}</p>
-    </div>
-    {% endif %}
-
-    {% if item.description_tiktok %}
-    <div class="desc-card">
-        <h4>TikTok</h4>
-        <p>{{ item.description_tiktok }}</p>
-    </div>
-    {% endif %}
-</div>
-{% endif %}
-
-{% endif %}
-
-<!-- Script and prompt in collapsible details -->
+<!-- Script and prompt details -->
 {% if item.script %}
-<details>
+<details style="margin-top:var(--space-6);">
     <summary>Guion generado</summary>
     <pre>{{ item.script }}</pre>
 </details>

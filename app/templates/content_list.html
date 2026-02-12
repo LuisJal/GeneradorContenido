@@ -2,10 +2,20 @@
 
 {% block title %}Contenido - {{ bot.name }}{% endblock %}
 
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <a href="/bots/{{ bot.slug }}">{{ bot.name }}</a>
+    <span class="separator">/</span>
+    <span class="current">Contenido</span>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h1>Contenido de {{ bot.name }}</h1>
-    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
+<div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-3);">
+    <h1 style="margin:0;font-size:var(--text-xl);">Contenido de {{ bot.name }}</h1>
+    <a href="/bots/{{ bot.slug }}" class="btn btn-secondary btn-sm">Volver al bot</a>
 </div>
 
 <!-- Filter tabs -->
@@ -21,47 +31,72 @@
 </nav>
 
 {% if items %}
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Tema</th>
-            <th>Arco</th>
-            <th>Estado</th>
-            <th>Proveedor</th>
-            <th>Creado</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
-        <tr{% if item.story_arc_id %} class="arc-row"{% endif %}>
-            <td>{{ item.id }}</td>
-            <td>{{ (item.trend_topic or item.custom_prompt or "-")[:50] }}</td>
-            <td>
-                {% if item.story_arc_id %}
-                <span class="arc-badge">Cap {{ item.story_arc_chapter }}/{{ item.story_arc_total }}</span>
-                {% else %}
-                -
-                {% endif %}
-            </td>
-            <td>
-                <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
-            </td>
-            <td>{{ item.video_provider or "-" }}</td>
-            <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else "-" }}</td>
-            <td>
-                <a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="btn-action" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Ver detalle</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+<!-- Desktop table -->
+<div class="content-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tema</th>
+                <th>Arco</th>
+                <th>Estado</th>
+                <th>Proveedor</th>
+                <th>Creado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ (item.trend_topic or item.custom_prompt or item.script_prompt or "-")[:50] }}</td>
+                <td>
+                    {% if item.story_arc_id %}
+                    <span class="arc-badge">Cap {{ item.story_arc_chapter }}/{{ item.story_arc_total }}</span>
+                    {% else %}
+                    <span style="color:var(--color-text-tertiary);">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span>
+                </td>
+                <td style="color:var(--color-text-tertiary);">{{ (item.video_provider or "-") | replace("_", " ") | title }}</td>
+                <td style="white-space:nowrap;color:var(--color-text-tertiary);">{{ item.created_at.strftime('%d/%m %H:%M') if item.created_at else "-" }}</td>
+                <td>
+                    <a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="btn btn-ghost btn-sm">Ver</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Mobile cards -->
+<div class="content-cards-mobile">
+    {% for item in items %}
+    <a href="/bots/{{ bot.slug }}/content/{{ item.id }}" class="content-card-mobile">
+        <div class="flex items-center justify-between" style="margin-bottom:var(--space-2);">
+            <span class="status-badge status-{{ item.status }}">{{ item.status | replace("_", " ") }}</span>
+            {% if item.story_arc_id %}
+            <span class="arc-badge">Cap {{ item.story_arc_chapter }}/{{ item.story_arc_total }}</span>
+            {% endif %}
+        </div>
+        <div style="font-size:var(--text-sm);color:var(--color-text);margin-bottom:var(--space-1);">
+            {{ (item.trend_topic or item.custom_prompt or item.script_prompt or "Sin tema")[:60] }}
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-tertiary);">
+            #{{ item.id }} &middot; {{ item.created_at.strftime('%d/%m %H:%M') if item.created_at else "" }}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
 {% else %}
-<div class="empty-state">
+<div class="empty-state" style="padding:var(--space-10) var(--space-6);">
     <div class="empty-state-icon">&#128196;</div>
-    <h2>Sin contenido</h2>
-    <p>No hay contenido{% if current_filter %} con estado "{{ current_filter }}"{% endif %} generado todavia para este bot.</p>
+    <h2>No hay contenido</h2>
+    <p>No hay contenido{% if current_filter %} con estado "{{ current_filter | replace("_", " ") }}"{% endif %} generado todavia.</p>
 </div>
 {% endif %}
 {% endblock %}

@@ -3,10 +3,33 @@
 {% block title %}Dashboard - GeneradorContenido{% endblock %}
 
 {% block content %}
-<div class="hero-section">
-    <h1>Tus Bots</h1>
-    <p class="hero-subtitle">Gestiona tus bots de generacion de contenido autonomo</p>
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Gestiona tus bots de generacion de contenido autonomo</p>
 </div>
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-value">{{ bots|length }}</div>
+        <div class="stat-label">Bots</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-label">Pendientes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ published_today }}</div>
+        <div class="stat-label">Publicados hoy</div>
+    </div>
+</div>
+
+{% if pending_count > 0 %}
+<div class="pending-banner">
+    <span>{{ pending_count }} contenido{{ "s" if pending_count > 1 }} esperando aprobacion</span>
+    <a href="/content?status=pending_approval">Revisar</a>
+</div>
+{% endif %}
 
 {% if bots %}
 <div class="bot-grid">
@@ -19,7 +42,7 @@
     <div class="empty-state-icon">&#9883;</div>
     <h2>No hay bots configurados</h2>
     <p>Crea tu primer bot para empezar a generar contenido automaticamente para tus redes sociales.</p>
-    <a href="/bots/new" role="button" class="btn-gradient">Crear primer bot</a>
+    <a href="/bots/new" class="btn btn-primary btn-lg">Crear primer bot</a>
 </div>
 {% endif %}
 {% endblock %}

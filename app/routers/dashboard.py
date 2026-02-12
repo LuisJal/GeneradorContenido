@@ -66,8 +66,24 @@ async def legal_privacy(request: Request):
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_home(request: Request, db: Session = Depends(get_db)):
     bots = bot_manager.list_bots(db)
+    pending_count = (
+        db.query(ContentItem)
+        .filter(ContentItem.status == ContentStatus.PENDING_APPROVAL.value)
+        .count()
+    )
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    published_today = (
+        db.query(ContentItem)
+        .filter(
+            ContentItem.status == ContentStatus.PUBLISHED.value,
+            ContentItem.created_at >= today_start,
+        )
+        .count()
+    )
     return templates.TemplateResponse(request, "dashboard.html", {
         "bots": bots,
+        "pending_count": pending_count,
+        "published_today": published_today,
     })
 
 

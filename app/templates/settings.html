@@ -2,10 +2,22 @@
 
 {% block title %}Configuracion - GeneradorContenido{% endblock %}
 
+{# Macro: status dot — green if configured, gray if not #}
+{% macro status_dot(key) %}
+{% if current[key] %}<span style="color: var(--color-success);">&#9679;</span>{% else %}<span style="color: var(--color-text-tertiary);">&#9675;</span>{% endif %}
+{% endmacro %}
+
+{# Macro: group configured? — true if ANY key in the list is set #}
+{% macro group_status(keys) %}
+{% set ns = namespace(ok=false) %}
+{% for k in keys %}{% if current[k] %}{% set ns.ok = true %}{% endif %}{% endfor %}
+{% if ns.ok %}<span class="badge-active" style="font-size:11px;padding:2px 8px;">Configurado</span>{% else %}<span class="badge-inactive" style="font-size:11px;padding:2px 8px;">Sin configurar</span>{% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="page-header">
-    <h1>Configuracion Global</h1>
-    <p>Estas claves se comparten entre todos los bots. Las credenciales de publicacion (IG, YT, TT) se configuran en cada bot.</p>
+    <h1>Configuracion</h1>
+    <p>Claves API compartidas entre todos los bots. Las credenciales de publicacion se configuran en cada bot.</p>
 </div>
 
 {% if message %}
@@ -13,107 +25,143 @@
 {% endif %}
 
 <form method="post" action="/settings">
-    <fieldset class="settings-fieldset">
-        <legend>Gemini (generacion de guiones)</legend>
 
-        <label for="gemini_api_key">Gemini API Key</label>
-        <input type="password" id="gemini_api_key" name="gemini_api_key"
-               placeholder="{% if current.gemini_api_key %}{{ current.gemini_api_key }}{% else %}AIzaSy...{% endif %}">
-        <small>Clave API de Gemini para generar guiones y descripciones.</small>
-    </fieldset>
+    <!-- 1. Esencial -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 style="font-size:var(--text-lg);margin:0;">Esencial</h2>
+            {{ group_status(["gemini_api_key"]) }}
+        </div>
 
-    <fieldset class="settings-fieldset">
-        <legend>Google Cloud / Veo 3 (generacion de video)</legend>
+        <div class="settings-fieldset">
+            <legend>{{ status_dot("gemini_api_key") }} Gemini</legend>
+            <label for="gemini_api_key">API Key</label>
+            <input type="password" id="gemini_api_key" name="gemini_api_key"
+                   placeholder="{% if current.gemini_api_key %}{{ current.gemini_api_key }}{% else %}AIzaSy...{% endif %}">
+            <small>Genera guiones y descripciones para todos los bots.</small>
+        </div>
+    </section>
 
-        <label for="google_cloud_project">ID del proyecto Google Cloud</label>
-        <input type="text" id="google_cloud_project" name="google_cloud_project"
-               value="{{ current.google_cloud_project or '' }}"
-               placeholder="my-gcp-project-id">
-        <small>Necesario para generar videos con Veo 3 via Vertex AI.</small>
+    <!-- 2. Generacion de Video -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 style="font-size:var(--text-lg);margin:0;">Generacion de Video</h2>
+            {{ group_status(["google_cloud_project", "aiml_api_key", "kling_access_key", "kling_api_key"]) }}
+        </div>
 
-        <label for="google_application_credentials">Ruta al archivo Service Account JSON</label>
-        <input type="text" id="google_application_credentials" name="google_application_credentials"
-               value="{{ current.google_application_credentials or '' }}"
-               placeholder="/path/to/service-account.json">
-        <small>Archivo de credenciales de servicio de Google Cloud.</small>
-    </fieldset>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:var(--space-4);">
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("google_cloud_project") }} Google Cloud / Veo 3</legend>
 
-    <fieldset class="settings-fieldset">
-        <legend>AIML API (video - recomendado)</legend>
+                <label for="google_cloud_project">ID del proyecto</label>
+                <input type="text" id="google_cloud_project" name="google_cloud_project"
+                       value="{{ current.google_cloud_project or '' }}"
+                       placeholder="my-gcp-project-id">
 
-        <label for="aiml_api_key">AIML API Key</label>
-        <input type="password" id="aiml_api_key" name="aiml_api_key"
-               placeholder="{% if current.aiml_api_key %}{{ current.aiml_api_key }}{% else %}Tu clave API de AIML{% endif %}">
-        <small>Acceso economico a Kling V3 para generar videos de 3-15s. Obtenla en <a href="https://aimlapi.com" target="_blank">aimlapi.com</a></small>
-    </fieldset>
+                <label for="google_application_credentials">Ruta Service Account JSON</label>
+                <input type="text" id="google_application_credentials" name="google_application_credentials"
+                       value="{{ current.google_application_credentials or '' }}"
+                       placeholder="/path/to/service-account.json">
+            </div>
 
-    <fieldset class="settings-fieldset">
-        <legend>Kling 3.0 (video - API directa)</legend>
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("aiml_api_key") }} AIML API (recomendado)</legend>
 
-        <label for="kling_access_key">Kling Access Key</label>
-        <input type="password" id="kling_access_key" name="kling_access_key"
-               placeholder="{% if current.kling_access_key %}{{ current.kling_access_key }}{% else %}Tu Access Key de Kling{% endif %}">
-        <small>Access Key de la API directa de Kling.</small>
+                <label for="aiml_api_key">API Key</label>
+                <input type="password" id="aiml_api_key" name="aiml_api_key"
+                       placeholder="{% if current.aiml_api_key %}{{ current.aiml_api_key }}{% else %}Tu clave API{% endif %}">
+                <small>Acceso economico a Kling V3. <a href="https://aimlapi.com" target="_blank" rel="noopener">aimlapi.com</a></small>
+            </div>
 
-        <label for="kling_secret_key">Kling Secret Key</label>
-        <input type="password" id="kling_secret_key" name="kling_secret_key"
-               placeholder="{% if current.kling_secret_key %}{{ current.kling_secret_key }}{% else %}Tu Secret Key de Kling{% endif %}">
-        <small>Secret Key de la API directa de Kling.</small>
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("kling_access_key") }} Kling 3.0 (API directa)</legend>
 
-        <label for="kling_api_key">Kling API Key (legacy)</label>
-        <input type="password" id="kling_api_key" name="kling_api_key"
-               placeholder="{% if current.kling_api_key %}{{ current.kling_api_key }}{% else %}Solo si no usas Access/Secret Key{% endif %}">
-        <small>Clave legacy de Kling (solo si no tienes access/secret key).</small>
-    </fieldset>
+                <label for="kling_access_key">Access Key</label>
+                <input type="password" id="kling_access_key" name="kling_access_key"
+                       placeholder="{% if current.kling_access_key %}{{ current.kling_access_key }}{% else %}Access Key{% endif %}">
 
-    <fieldset class="settings-fieldset">
-        <legend>ElevenLabs (voz - Talking Head)</legend>
+                <label for="kling_secret_key">Secret Key</label>
+                <input type="password" id="kling_secret_key" name="kling_secret_key"
+                       placeholder="{% if current.kling_secret_key %}{{ current.kling_secret_key }}{% else %}Secret Key{% endif %}">
 
-        <label for="elevenlabs_api_key">ElevenLabs API Key</label>
-        <input type="password" id="elevenlabs_api_key" name="elevenlabs_api_key"
-               placeholder="{% if current.elevenlabs_api_key %}{{ current.elevenlabs_api_key }}{% else %}Tu clave API de ElevenLabs{% endif %}">
-        <small>Genera voces realistas para bots de tipo Talking Head. Obtenla en <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a></small>
-    </fieldset>
+                <label for="kling_api_key">API Key (legacy)</label>
+                <input type="password" id="kling_api_key" name="kling_api_key"
+                       placeholder="{% if current.kling_api_key %}{{ current.kling_api_key }}{% else %}Solo sin Access/Secret{% endif %}">
+            </div>
+        </div>
+    </section>
 
-    <fieldset class="settings-fieldset">
-        <legend>Hedra (video - Talking Head)</legend>
+    <!-- 3. Personaje IA -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 style="font-size:var(--text-lg);margin:0;">Personaje IA (Talking Head)</h2>
+            {{ group_status(["elevenlabs_api_key", "hedra_api_key"]) }}
+        </div>
 
-        <label for="hedra_api_key">Hedra API Key</label>
-        <input type="password" id="hedra_api_key" name="hedra_api_key"
-               placeholder="{% if current.hedra_api_key %}{{ current.hedra_api_key }}{% else %}Tu clave API de Hedra{% endif %}">
-        <small>Genera videos de lip-sync con Character-3. Obtenla en <a href="https://hedra.com" target="_blank">hedra.com</a></small>
-    </fieldset>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:var(--space-4);">
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("elevenlabs_api_key") }} ElevenLabs (voz)</legend>
+                <label for="elevenlabs_api_key">API Key</label>
+                <input type="password" id="elevenlabs_api_key" name="elevenlabs_api_key"
+                       placeholder="{% if current.elevenlabs_api_key %}{{ current.elevenlabs_api_key }}{% else %}Tu clave API{% endif %}">
+                <small>Voces realistas para Talking Head. <a href="https://elevenlabs.io" target="_blank" rel="noopener">elevenlabs.io</a></small>
+            </div>
 
-    <fieldset class="settings-fieldset">
-        <legend>Football-Data.org (partidos y clasificaciones)</legend>
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("hedra_api_key") }} Hedra (lip-sync)</legend>
+                <label for="hedra_api_key">API Key</label>
+                <input type="password" id="hedra_api_key" name="hedra_api_key"
+                       placeholder="{% if current.hedra_api_key %}{{ current.hedra_api_key }}{% else %}Tu clave API{% endif %}">
+                <small>Video lip-sync Character-3. <a href="https://hedra.com" target="_blank" rel="noopener">hedra.com</a></small>
+            </div>
+        </div>
+    </section>
 
-        <label for="football_data_api_key">Football-Data.org API Key</label>
-        <input type="password" id="football_data_api_key" name="football_data_api_key"
-               placeholder="{% if current.football_data_api_key %}{{ current.football_data_api_key }}{% else %}Tu clave API de Football-Data.org{% endif %}">
-        <small>API gratuita para partidos y clasificaciones (10 req/min). Obtenla en <a href="https://www.football-data.org/client/register" target="_blank" rel="noopener">football-data.org</a></small>
-    </fieldset>
+    <!-- 4. Fuentes de Noticias -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 style="font-size:var(--text-lg);margin:0;">Fuentes de Noticias</h2>
+            {{ group_status(["football_data_api_key", "gnews_api_key"]) }}
+        </div>
 
-    <fieldset class="settings-fieldset">
-        <legend>GNews (noticias deportivas)</legend>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:var(--space-4);">
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("football_data_api_key") }} Football-Data.org</legend>
+                <label for="football_data_api_key">API Key</label>
+                <input type="password" id="football_data_api_key" name="football_data_api_key"
+                       placeholder="{% if current.football_data_api_key %}{{ current.football_data_api_key }}{% else %}Tu clave API{% endif %}">
+                <small>Partidos y clasificaciones (gratis, 10 req/min). <a href="https://www.football-data.org/client/register" target="_blank" rel="noopener">Registrarse</a></small>
+            </div>
 
-        <label for="gnews_api_key">GNews API Key</label>
-        <input type="password" id="gnews_api_key" name="gnews_api_key"
-               placeholder="{% if current.gnews_api_key %}{{ current.gnews_api_key }}{% else %}Tu clave API de GNews{% endif %}">
-        <small>API gratuita para noticias (100 req/dia). Obtenla en <a href="https://gnews.io/" target="_blank" rel="noopener">gnews.io</a></small>
-    </fieldset>
+            <div class="settings-fieldset">
+                <legend>{{ status_dot("gnews_api_key") }} GNews</legend>
+                <label for="gnews_api_key">API Key</label>
+                <input type="password" id="gnews_api_key" name="gnews_api_key"
+                       placeholder="{% if current.gnews_api_key %}{{ current.gnews_api_key }}{% else %}Tu clave API{% endif %}">
+                <small>Noticias deportivas (gratis, 100 req/dia). <a href="https://gnews.io/" target="_blank" rel="noopener">gnews.io</a></small>
+            </div>
+        </div>
+    </section>
 
-    <fieldset class="settings-fieldset">
-        <legend>Telegram (notificaciones opcionales)</legend>
+    <!-- 5. Opcional -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 style="font-size:var(--text-lg);margin:0;">Opcional</h2>
+            {{ group_status(["telegram_bot_token"]) }}
+        </div>
 
-        <label for="telegram_bot_token">Token del Bot de Telegram</label>
-        <input type="password" id="telegram_bot_token" name="telegram_bot_token"
-               placeholder="{% if current.telegram_bot_token %}{{ current.telegram_bot_token }}{% else %}123456:ABC-DEF...{% endif %}">
-        <small>Token para enviar notificaciones via Telegram (opcional).</small>
-    </fieldset>
+        <div class="settings-fieldset">
+            <legend>{{ status_dot("telegram_bot_token") }} Telegram</legend>
+            <label for="telegram_bot_token">Token del Bot</label>
+            <input type="password" id="telegram_bot_token" name="telegram_bot_token"
+                   placeholder="{% if current.telegram_bot_token %}{{ current.telegram_bot_token }}{% else %}123456:ABC-DEF...{% endif %}">
+            <small>Notificaciones via Telegram (opcional).</small>
+        </div>
+    </section>
 
     <div class="action-bar">
-        <button type="submit" class="btn-gradient">Guardar configuracion</button>
-        <a href="/" class="btn-action">Volver al Dashboard</a>
+        <button type="submit" class="btn btn-primary btn-lg">Guardar configuracion</button>
+        <a href="/" class="btn btn-secondary">Volver al Dashboard</a>
     </div>
 </form>
 {% endblock %}

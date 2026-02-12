@@ -9,31 +9,36 @@ from app.main import app
 
 client = TestClient(app)
 
+# Complete settings dict matching all SETTING_DEFINITIONS keys
+_EMPTY_SETTINGS = {
+    "gemini_api_key": "",
+    "google_cloud_project": "",
+    "google_application_credentials": "",
+    "kling_access_key": "",
+    "kling_secret_key": "",
+    "kling_api_key": "",
+    "aiml_api_key": "",
+    "elevenlabs_api_key": "",
+    "hedra_api_key": "",
+    "telegram_bot_token": "",
+    "football_data_api_key": "",
+    "gnews_api_key": "",
+}
+
 
 def test_settings_page_loads():
     """GET /settings returns 200 with form fields."""
-    with patch("app.routers.dashboard.get_all_settings", return_value={
-        "gemini_api_key": "",
-        "google_cloud_project": "",
-        "google_application_credentials": "",
-        "kling_api_key": "",
-        "telegram_bot_token": "",
-    }):
+    with patch("app.routers.dashboard.get_all_settings", return_value=_EMPTY_SETTINGS):
         resp = client.get("/settings")
     assert resp.status_code == 200
-    assert "Configuracion Global" in resp.text
+    assert "Configuracion" in resp.text
     assert "gemini_api_key" in resp.text
 
 
 def test_settings_page_shows_configured():
     """GET /settings shows masked values for configured keys."""
-    with patch("app.routers.dashboard.get_all_settings", return_value={
-        "gemini_api_key": "***configurado***",
-        "google_cloud_project": "my-project",
-        "google_application_credentials": "",
-        "kling_api_key": "",
-        "telegram_bot_token": "",
-    }):
+    settings = {**_EMPTY_SETTINGS, "gemini_api_key": "***configurado***", "google_cloud_project": "my-project"}
+    with patch("app.routers.dashboard.get_all_settings", return_value=settings):
         resp = client.get("/settings")
     assert resp.status_code == 200
     assert "***configurado***" in resp.text
@@ -44,11 +49,9 @@ def test_settings_save():
     """POST /settings saves values and shows success message."""
     with patch("app.routers.dashboard.save_setting") as mock_save, \
          patch("app.routers.dashboard.get_all_settings", return_value={
+             **_EMPTY_SETTINGS,
              "gemini_api_key": "***configurado***",
              "google_cloud_project": "new-project",
-             "google_application_credentials": "",
-             "kling_api_key": "",
-             "telegram_bot_token": "",
          }):
         resp = client.post("/settings", data={
             "gemini_api_key": "AIza-new-key",
@@ -63,13 +66,7 @@ def test_settings_save():
 def test_settings_save_skips_empty():
     """POST /settings does not call save_setting for empty fields."""
     with patch("app.routers.dashboard.save_setting") as mock_save, \
-         patch("app.routers.dashboard.get_all_settings", return_value={
-             "gemini_api_key": "",
-             "google_cloud_project": "",
-             "google_application_credentials": "",
-             "kling_api_key": "",
-             "telegram_bot_token": "",
-         }):
+         patch("app.routers.dashboard.get_all_settings", return_value=_EMPTY_SETTINGS):
         resp = client.post("/settings", data={
             "gemini_api_key": "",
             "google_cloud_project": "",
@@ -84,3 +81,20 @@ def test_navbar_has_settings_link():
     assert resp.status_code == 200
     assert 'href="/settings"' in resp.text
     assert "Configuracion" in resp.text
+
+
+def test_settings_grouped_sections():
+    """Settings page should have grouped sections with status indicators."""
+    with patch("app.routers.dashboard.get_all_settings", return_value={
+        **_EMPTY_SETTINGS,
+        "gemini_api_key": "***configurado***",
+    }):
+        resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "Esencial" in resp.text
+    assert "Generacion de Video" in resp.text
+    assert "Personaje IA" in resp.text
+    assert "Fuentes de Noticias" in resp.text
+    assert "Opcional" in resp.text
+    # Gemini is configured → "Configurado" badge should appear
+    assert "Configurado" in resp.text

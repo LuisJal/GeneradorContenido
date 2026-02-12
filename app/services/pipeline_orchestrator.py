@@ -142,6 +142,43 @@ async def _generate_tts_audio(
     return saved
 
 
+async def _generate_tts_audio_from_text(
+    bot: Bot, content: ContentItem, text: str, db: Session
+) -> str:
+    """Generate TTS audio from raw dialogue text via ElevenLabs."""
+    from app.integrations.elevenlabs_client import ElevenLabsClient
+    from app.services.settings_manager import get_setting
+
+    sess = _settings_session()
+    try:
+        api_key = get_setting(sess, "elevenlabs_api_key")
+    finally:
+        sess.close()
+
+    if not api_key:
+        raise ValueError("ElevenLabs API key not configured. Set it in Settings.")
+
+    voice_id = bot.character_voice_id
+    if not voice_id:
+        raise ValueError("Bot has no character_voice_id for TTS.")
+
+    if not text.strip():
+        raise ValueError("No dialogue text to synthesise.")
+
+    output_path = str(get_audio_path(bot.slug, content.id))
+
+    client = ElevenLabsClient(api_key=api_key)
+    saved = await client.text_to_speech(
+        text=text,
+        voice_id=voice_id,
+        output_path=output_path,
+        language_code=bot.language or "es",
+    )
+    content.audio_file_path = saved
+    db.commit()
+    return saved
+
+
 def _select_topic(bot: Bot, db: Session) -> str:
     """Select the next topic for content generation.
 
@@ -198,25 +235,45 @@ async def run_pipeline(bot: Bot, db: Session) -> ContentItem:
         db.commit()
         _log(db, bot.id, content_id, "topic_selected", f"Topic: {topic}")
 
-        # 3. Script generation
+        # 3. Script / production document generation
         _set_status(db, content, ContentStatus.SCRIPT_GENERATING)
-        script = await script_generator.generate_content_script(bot, topic)
-        content.script = json.dumps(script, ensure_ascii=False)
-        _set_status(db, content, ContentStatus.SCRIPT_READY)
-        _log(db, bot.id, content_id, "script_generated", "Script generated successfully")
+        mode = getattr(bot, "production_mode", "standard") or "standard"
 
-        # 4. Video prompt generation
-        video_prompt = await script_generator.generate_video_prompt(bot, script)
-        content.video_prompt = video_prompt
-        db.commit()
-        _log(db, bot.id, content_id, "video_prompt_generated", "Video prompt ready")
+        if mode in ("storyboard", "talking_head"):
+            doc = await script_generator.generate_production_document(bot, topic)
+            content.script = json.dumps(doc, ensure_ascii=False)
+            video_prompt = doc.get("video_prompt", "")
+            content.video_prompt = video_prompt
+            _set_status(db, content, ContentStatus.SCRIPT_READY)
+            _log(db, bot.id, content_id, "production_doc_generated",
+                 f"Production document generated (mode={mode})")
 
-        # 5. TTS audio generation (talking_head provider only)
-        audio_path = None
-        if bot.video_provider == "talking_head":
-            _log(db, bot.id, content_id, "tts_generating", "Generating TTS audio")
-            audio_path = await _generate_tts_audio(bot, content, script, db)
-            _log(db, bot.id, content_id, "tts_generated", f"Audio at: {audio_path}")
+            # TTS from dialogue_full (talking_head)
+            audio_path = None
+            if bot.video_provider == "talking_head":
+                dialogue = doc.get("dialogue_full", "")
+                if dialogue:
+                    _log(db, bot.id, content_id, "tts_generating", "Generating TTS audio")
+                    audio_path = await _generate_tts_audio_from_text(
+                        bot, content, dialogue, db
+                    )
+                    _log(db, bot.id, content_id, "tts_generated", f"Audio at: {audio_path}")
+        else:
+            script = await script_generator.generate_content_script(bot, topic)
+            content.script = json.dumps(script, ensure_ascii=False)
+            _set_status(db, content, ContentStatus.SCRIPT_READY)
+            _log(db, bot.id, content_id, "script_generated", "Script generated successfully")
+
+            video_prompt = await script_generator.generate_video_prompt(bot, script)
+            content.video_prompt = video_prompt
+            db.commit()
+            _log(db, bot.id, content_id, "video_prompt_generated", "Video prompt ready")
+
+            audio_path = None
+            if bot.video_provider == "talking_head":
+                _log(db, bot.id, content_id, "tts_generating", "Generating TTS audio")
+                audio_path = await _generate_tts_audio(bot, content, script, db)
+                _log(db, bot.id, content_id, "tts_generated", f"Audio at: {audio_path}")
 
         # 6. Submit video generation
         _set_status(db, content, ContentStatus.VIDEO_GENERATING)
@@ -293,39 +350,70 @@ async def run_story_arc_pipeline(bot: Bot, db: Session) -> List[ContentItem]:
              f"Generating chapter {chapter}/{total} of arc '{arc_id}'")
 
         try:
-            # Script generation with arc context
             _set_status(db, content, ContentStatus.SCRIPT_GENERATING)
-            script = await script_generator.generate_content_script(
-                bot, topic,
-                arc_premise=premise,
-                arc_chapter=chapter,
-                arc_total=total,
-                previous_scripts=list(previous_scripts),
-            )
-            content.script = json.dumps(script, ensure_ascii=False)
-            _set_status(db, content, ContentStatus.SCRIPT_READY)
-            _log(db, bot.id, content_id, "script_generated",
-                 f"Chapter {chapter} script ready")
+            mode = getattr(bot, "production_mode", "standard") or "standard"
 
-            # Video prompt with arc context
-            video_prompt = await script_generator.generate_video_prompt(
-                bot, script,
-                arc_premise=premise,
-                arc_chapter=chapter,
-                arc_total=total,
-                previous_video_prompts=list(previous_video_prompts),
-            )
-            content.video_prompt = video_prompt
-            db.commit()
-            _log(db, bot.id, content_id, "video_prompt_generated",
-                 f"Chapter {chapter} video prompt ready")
+            if mode in ("storyboard", "talking_head"):
+                doc = await script_generator.generate_production_document(
+                    bot, topic,
+                    arc_premise=premise,
+                    arc_chapter=chapter,
+                    arc_total=total,
+                    previous_scripts=list(previous_scripts),
+                )
+                content.script = json.dumps(doc, ensure_ascii=False)
+                video_prompt = doc.get("video_prompt", "")
+                content.video_prompt = video_prompt
+                _set_status(db, content, ContentStatus.SCRIPT_READY)
+                _log(db, bot.id, content_id, "production_doc_generated",
+                     f"Chapter {chapter} production doc ready (mode={mode})")
 
-            # TTS audio generation (talking_head provider only)
-            audio_path = None
-            if bot.video_provider == "talking_head":
-                audio_path = await _generate_tts_audio(bot, content, script, db)
-                _log(db, bot.id, content_id, "tts_generated",
-                     f"Chapter {chapter} audio ready")
+                audio_path = None
+                if bot.video_provider == "talking_head":
+                    dialogue = doc.get("dialogue_full", "")
+                    if dialogue:
+                        audio_path = await _generate_tts_audio_from_text(
+                            bot, content, dialogue, db
+                        )
+                        _log(db, bot.id, content_id, "tts_generated",
+                             f"Chapter {chapter} audio ready")
+
+                # Track doc as script for next chapter context
+                previous_scripts.append(doc)
+                previous_video_prompts.append(video_prompt)
+            else:
+                script = await script_generator.generate_content_script(
+                    bot, topic,
+                    arc_premise=premise,
+                    arc_chapter=chapter,
+                    arc_total=total,
+                    previous_scripts=list(previous_scripts),
+                )
+                content.script = json.dumps(script, ensure_ascii=False)
+                _set_status(db, content, ContentStatus.SCRIPT_READY)
+                _log(db, bot.id, content_id, "script_generated",
+                     f"Chapter {chapter} script ready")
+
+                video_prompt = await script_generator.generate_video_prompt(
+                    bot, script,
+                    arc_premise=premise,
+                    arc_chapter=chapter,
+                    arc_total=total,
+                    previous_video_prompts=list(previous_video_prompts),
+                )
+                content.video_prompt = video_prompt
+                db.commit()
+                _log(db, bot.id, content_id, "video_prompt_generated",
+                     f"Chapter {chapter} video prompt ready")
+
+                audio_path = None
+                if bot.video_provider == "talking_head":
+                    audio_path = await _generate_tts_audio(bot, content, script, db)
+                    _log(db, bot.id, content_id, "tts_generated",
+                         f"Chapter {chapter} audio ready")
+
+                previous_scripts.append(script)
+                previous_video_prompts.append(video_prompt)
 
             # Submit video generation
             _set_status(db, content, ContentStatus.VIDEO_GENERATING)
@@ -338,9 +426,6 @@ async def run_story_arc_pipeline(bot: Bot, db: Session) -> List[ContentItem]:
             _log(db, bot.id, content_id, "video_submitted",
                  f"Chapter {chapter}/{total} task={task_id}")
 
-            # Track for next chapter's context
-            previous_scripts.append(script)
-            previous_video_prompts.append(video_prompt)
             items.append(content)
 
         except Exception as exc:

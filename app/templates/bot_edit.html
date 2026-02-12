@@ -2,302 +2,349 @@
 
 {% block title %}Editar {{ bot.name }} - GeneradorContenido{% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <h1>Editar {{ bot.name }}</h1>
-    <p><a href="/bots/{{ bot.slug }}">&larr; Volver al bot</a></p>
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <a href="/bots/{{ bot.slug }}">{{ bot.name }}</a>
+    <span class="separator">/</span>
+    <span class="current">Editar</span>
 </div>
+{% endblock %}
 
-{% if errors.get("general") %}
-<div class="flash-error">{{ errors.general }}</div>
-{% endif %}
+{% block content %}
+<div x-data="{
+    tab: 'general',
+    provider: '{{ bot.video_provider }}',
+    arcEnabled: {{ 'true' if bot.story_arc_enabled else 'false' }}
+}">
 
-<form method="post" action="/bots/{{ bot.slug }}/edit">
-    <fieldset>
-        <legend>Contenido</legend>
-
-        <label for="niche_description">Descripcion del nicho</label>
-        <textarea id="niche_description" name="niche_description" rows="3">{{ bot.niche_description }}</textarea>
-
-        <label for="content_style">Estilo de contenido</label>
-        <input type="text" id="content_style" name="content_style" value="{{ bot.content_style }}">
-
-        <label for="brand_style">Identidad visual del canal</label>
-        <textarea id="brand_style" name="brand_style" rows="4" placeholder="Describe el estilo visual consistente para todos los videos. Ej: 'Estilo anime shonen, colores vibrantes neon, escenas de accion dinamicas con efectos de energia, transiciones rapidas tipo manga...'">{{ bot.brand_style }}</textarea>
-        <small>Define la estetica visual que se aplicara a TODOS los videos del bot para mantener coherencia en el canal.</small>
-
-        <label for="script_system_prompt">System prompt para guiones</label>
-        <textarea id="script_system_prompt" name="script_system_prompt" rows="5">{{ bot.script_system_prompt }}</textarea>
-
-        <label for="language">Idioma</label>
-        <select id="language" name="language">
-            <option value="es" {{ "selected" if bot.language == "es" }}>Espanol</option>
-            <option value="en" {{ "selected" if bot.language == "en" }}>English</option>
-        </select>
-
-        <label for="contact_email">Email de contacto</label>
-        <input type="email" id="contact_email" name="contact_email" value="{{ bot.contact_email or '' }}">
-    </fieldset>
-
-    <fieldset>
-        <legend>Prompts Personalizados</legend>
-        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-            Ideas de contenido que el bot usara como base para generar guiones.
-            Puedes agregar, editar o eliminar prompts en cualquier momento.
-        </p>
-
-        <div id="prompts-container">
-            {% for prompt in (bot.custom_prompts or []) %}
-            <div class="prompt-row">
-                <input type="text" name="custom_prompt" class="prompt-input" value="{{ prompt }}" placeholder="Describe una idea de contenido...">
-                <button type="button" class="prompt-remove" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>
-            </div>
-            {% endfor %}
-        </div>
-        <button type="button" class="btn-action" onclick="addPrompt()" style="margin-top: 0.5rem;">+ Agregar prompt</button>
-    </fieldset>
-
-    <fieldset>
-        <legend>Video</legend>
-
-        <label for="video_provider">Proveedor</label>
-        <select id="video_provider" name="video_provider" onchange="toggleCharacterFields()">
-            <option value="aiml_kling" {{ "selected" if bot.video_provider == "aiml_kling" }}>Kling V3 via AIML (3-15s, economico)</option>
-            <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3 (Scene Extension hasta 60s)</option>
-            <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0 (directo)</option>
-            <option value="talking_head" {{ "selected" if bot.video_provider == "talking_head" }}>Talking Head (ElevenLabs + Hedra)</option>
-        </select>
-
-        <label for="video_duration_seconds">Duracion (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="60">
-        <small>Veo3: hasta 8s en un solo clip, o hasta 60s con Scene Extension (8s inicial + extensiones de 7s).</small>
-
-        <label for="videos_per_day">Videos por dia</label>
-        <input type="number" id="videos_per_day" name="videos_per_day" value="{{ bot.videos_per_day }}" min="1" max="10">
-    </fieldset>
-
-    <fieldset id="character-fieldset" style="{{ '' if bot.video_provider == 'talking_head' else 'display:none;' }}">
-        <legend>Personaje (Talking Head)</legend>
-        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-            Configura la cara y voz del personaje IA. La misma cara y voz se usaran en todos los videos para mantener consistencia.
-        </p>
-
-        <label for="character_face_url">URL de imagen de referencia (cara)</label>
-        <input type="url" id="character_face_url" name="character_face_url"
-               value="{{ bot.character_face_url or '' }}"
-               placeholder="https://ejemplo.com/cara-referencia.png">
-        <small>Imagen frontal del personaje. Se usara como referencia para lip-sync en Hedra.</small>
-
-        <label for="character_voice_id">ElevenLabs Voice ID</label>
-        <input type="text" id="character_voice_id" name="character_voice_id"
-               value="{{ bot.character_voice_id or '' }}"
-               placeholder="pNInz6obpgDQGcFmaJgB">
-        <small>ID de la voz en ElevenLabs. Puedes encontrar voces en <a href="https://elevenlabs.io/voice-library" target="_blank">Voice Library</a>.</small>
-
-        <label for="character_personality">Personalidad del personaje</label>
-        <textarea id="character_personality" name="character_personality" rows="4"
-                  placeholder="Describe la personalidad, tono y estilo del personaje...">{{ bot.character_personality or '' }}</textarea>
-        <small>Se incluye en los prompts de guion para mantener el tono consistente.</small>
-    </fieldset>
-
-    <fieldset>
-        <legend>Arco Narrativo</legend>
-        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-            Genera historias de varias partes donde cada video continua la narrativa.
-            Con Veo3 (8s), 3 videos = 24 segundos de historia conectada.
-        </p>
-
-        <label for="story_arc_enabled">
-            <input type="checkbox" id="story_arc_enabled" name="story_arc_enabled"
-                   {{ "checked" if bot.story_arc_enabled }}>
-            Habilitar arcos narrativos
-        </label>
-
-        <label for="story_arc_chapters">Capitulos por arco</label>
-        <input type="number" id="story_arc_chapters" name="story_arc_chapters"
-               value="{{ bot.story_arc_chapters or 3 }}" min="2" max="5">
-        <small>Numero de videos que componen cada historia (recomendado: 3).</small>
-    </fieldset>
-
-    <fieldset>
-        <legend>Programacion de publicacion</legend>
-
-        <label for="schedule_times">Horarios de publicacion</label>
-        <input type="text" id="schedule_times" name="schedule_times" value="{{ bot.posting_schedule.get('times', ['09:00']) | join(', ') }}">
-        <small>Horas a las que se publicara contenido aprobado (separar con coma).</small>
-
-        <label for="schedule_timezone">Zona horaria</label>
-        <input type="text" id="schedule_timezone" name="schedule_timezone" value="{{ bot.posting_schedule.get('timezone', 'Europe/Madrid') }}">
-
-        <label for="use_trends">
-            <input type="checkbox" id="use_trends" name="use_trends" {{ "checked" if bot.use_trends }}>
-            Usar scraping de tendencias
-        </label>
-    </fieldset>
-
-    <div class="action-bar">
-        <button type="submit" class="btn-gradient">Guardar cambios</button>
-        <a href="/bots/{{ bot.slug }}" class="btn-action">Cancelar</a>
+    <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:var(--space-3);">
+        <h1 style="margin:0;font-size:var(--text-xl);">Editar {{ bot.name }}</h1>
+        <a href="/bots/{{ bot.slug }}" class="btn btn-secondary">Volver al bot</a>
     </div>
-</form>
 
-<!-- ===== CREDENTIALS SECTION (always visible) ===== -->
-<div class="credentials-section">
-    <h2>Credenciales de Redes Sociales</h2>
-    <p>Configura las credenciales de publicacion para este bot.</p>
-
-    {% if credentials %}
-    <table>
-        <thead>
-            <tr>
-                <th>Plataforma</th>
-                <th>Cuenta</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for cred in credentials %}
-            <tr>
-                <td>{{ cred.platform | capitalize }}</td>
-                <td>{{ cred.platform_username or cred.platform_user_id or "-" }}</td>
-                <td>
-                    {% if cred.is_active %}
-                    <span class="badge-active"><span class="pulse-dot"></span> Activa</span>
-                    {% else %}
-                    <span class="badge-inactive">Inactiva</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if cred.platform == "youtube" %}
-                    <a href="/auth/youtube/start?bot_slug={{ bot.slug }}"
-                       class="btn-action" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
-                        Reconectar
-                    </a>
-                    {% endif %}
-                    <button
-                        hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/toggle"
-                        hx-swap="outerHTML"
-                        hx-target="closest tr"
-                        class="btn-action"
-                        style="padding: 0.3rem 0.8rem; font-size: 0.8rem;"
-                    >
-                        {% if cred.is_active %}Desactivar{% else %}Activar{% endif %}
-                    </button>
-                    <button
-                        hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/delete"
-                        hx-swap="outerHTML"
-                        hx-target="closest tr"
-                        hx-confirm="Eliminar credencial de {{ cred.platform }}?"
-                        class="btn-action danger"
-                        style="padding: 0.3rem 0.8rem; font-size: 0.8rem;"
-                    >
-                        Eliminar
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="cred-empty">
-        No hay credenciales configuradas. Conecta una plataforma para empezar a publicar contenido.
-    </div>
+    {% if errors.get("general") %}
+    <div class="flash-error">{{ errors.general }}</div>
     {% endif %}
 
-    <!-- ===== YOUTUBE CONNECT ===== -->
-    <div class="cred-add-form" style="margin-top: 1.5rem;">
-        <h3>Conectar YouTube</h3>
-        {% set yt_cred = credentials | selectattr("platform", "equalto", "youtube") | list %}
-        {% if yt_cred %}
-        <p>YouTube ya conectado. Usa "Reconectar" en la tabla para renovar tokens.</p>
-        {% else %}
-        <form method="post" action="/bots/{{ bot.slug }}/credentials/youtube">
-            <div class="grid">
-                <label>
-                    YouTube Client ID
-                    <input type="password" name="youtube_client_id" required placeholder="123456-xxx.apps.googleusercontent.com">
-                </label>
-                <label>
-                    YouTube Client Secret
-                    <input type="password" name="youtube_client_secret" required placeholder="GOCSPX-...">
-                </label>
-            </div>
-            <small>Credenciales OAuth de Google Cloud Console para este bot. Se guardaran y te redirigira a Google para autorizar.</small>
-            <button type="submit" class="btn-action primary" style="margin-top:0.5rem;">Conectar YouTube</button>
-        </form>
-        {% endif %}
+    <!-- Tab navigation -->
+    <div class="tabs">
+        <button type="button" class="tab" :class="{ 'active': tab === 'general' }" @click="tab = 'general'">General</button>
+        <button type="button" class="tab" :class="{ 'active': tab === 'video' }" @click="tab = 'video'">Video</button>
+        <button type="button" class="tab" :class="{ 'active': tab === 'character' }" @click="tab = 'character'"
+                x-show="provider === 'talking_head'">Personaje</button>
+        <button type="button" class="tab" :class="{ 'active': tab === 'schedule' }" @click="tab = 'schedule'">Programacion</button>
+        <button type="button" class="tab" :class="{ 'active': tab === 'credentials' }" @click="tab = 'credentials'">Credenciales</button>
     </div>
 
-    <!-- ===== MANUAL CREDENTIAL FORM (for IG, TT) ===== -->
-    <details class="cred-add-form" style="margin-top: 1.5rem;">
-        <summary><h3 style="display:inline;">Agregar credencial manual (Instagram / TikTok)</h3></summary>
-        <form method="post" action="/bots/{{ bot.slug }}/credentials" style="margin-top:1rem;">
-            <div class="grid">
-                <label>
-                    Plataforma
-                    <select name="platform" required id="cred-platform" onchange="toggleTiktokFields()">
-                        <option value="instagram">Instagram</option>
-                        <option value="tiktok">TikTok</option>
-                    </select>
+    <form method="post" action="/bots/{{ bot.slug }}/edit" id="edit-form">
+
+        <!-- Tab: General -->
+        <div x-show="tab === 'general'" x-cloak>
+            <div class="card mb-6">
+                <h3 class="form-section-title">Contenido</h3>
+
+                <label for="niche_description">Descripcion del nicho</label>
+                <textarea id="niche_description" name="niche_description" rows="3">{{ bot.niche_description }}</textarea>
+
+                <label for="content_style">Estilo de contenido</label>
+                <input type="text" id="content_style" name="content_style" value="{{ bot.content_style }}">
+
+                <label for="brand_style">Identidad visual del canal</label>
+                <textarea id="brand_style" name="brand_style" rows="4" placeholder="Describe el estilo visual consistente para todos los videos...">{{ bot.brand_style }}</textarea>
+                <small>Define la estetica visual que se aplicara a TODOS los videos para mantener coherencia.</small>
+
+                <label for="script_system_prompt">System prompt para guiones</label>
+                <textarea id="script_system_prompt" name="script_system_prompt" rows="5">{{ bot.script_system_prompt }}</textarea>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="language">Idioma</label>
+                        <select id="language" name="language">
+                            <option value="es" {{ "selected" if bot.language == "es" }}>Espanol</option>
+                            <option value="en" {{ "selected" if bot.language == "en" }}>English</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="contact_email">Email de contacto</label>
+                        <input type="email" id="contact_email" name="contact_email" value="{{ bot.contact_email or '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Prompts -->
+            <div class="card mb-6">
+                <h3 class="form-section-title">Prompts Personalizados</h3>
+                <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
+                    Ideas de contenido que el bot usara como base para generar guiones.
+                </p>
+
+                <div id="prompts-container">
+                    {% for prompt in (bot.custom_prompts or []) %}
+                    <div class="prompt-row">
+                        <input type="text" name="custom_prompt" class="prompt-input" value="{{ prompt }}" placeholder="Describe una idea de contenido...">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addPrompt()" style="margin-top:var(--space-2);">+ Agregar prompt</button>
+            </div>
+        </div>
+
+        <!-- Tab: Video -->
+        <div x-show="tab === 'video'" x-cloak>
+            <div class="card mb-6">
+                <h3 class="form-section-title">Configuracion de Video</h3>
+
+                <label for="video_provider">Proveedor</label>
+                <select id="video_provider" name="video_provider" x-model="provider">
+                    <option value="aiml_kling" {{ "selected" if bot.video_provider == "aiml_kling" }}>Kling V3 via AIML (3-15s, economico)</option>
+                    <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3 (Scene Extension hasta 60s)</option>
+                    <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0 (directo)</option>
+                    <option value="talking_head" {{ "selected" if bot.video_provider == "talking_head" }}>Talking Head (ElevenLabs + Hedra)</option>
+                </select>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="video_duration_seconds">Duracion (segundos)</label>
+                        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="60">
+                        <small>Veo3: hasta 60s con Scene Extension.</small>
+                    </div>
+                    <div>
+                        <label for="videos_per_day">Videos por dia</label>
+                        <input type="number" id="videos_per_day" name="videos_per_day" value="{{ bot.videos_per_day }}" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-6">
+                <h3 class="form-section-title">Arco Narrativo</h3>
+                <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
+                    Genera historias de varias partes donde cada video continua la narrativa.
+                </p>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" name="story_arc_enabled" x-model="arcEnabled"
+                           {{ "checked" if bot.story_arc_enabled }}>
+                    <span>Habilitar arcos narrativos</span>
                 </label>
-                <label>
-                    Access Token
-                    <input type="password" name="access_token" id="cred-access-token" required>
+
+                <div x-show="arcEnabled" style="margin-top:var(--space-4);">
+                    <label for="story_arc_chapters">Capitulos por arco</label>
+                    <input type="number" id="story_arc_chapters" name="story_arc_chapters"
+                           value="{{ bot.story_arc_chapters or 3 }}" min="2" max="5" style="max-width:120px;">
+                    <small>Recomendado: 3 capitulos.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Character (only for talking_head) -->
+        <div x-show="tab === 'character' && provider === 'talking_head'" x-cloak>
+            <div class="card mb-6">
+                <h3 class="form-section-title">Personaje (Talking Head)</h3>
+                <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
+                    Configura la cara y voz del personaje IA. La misma cara y voz se usaran en todos los videos para mantener consistencia.
+                </p>
+
+                <label for="character_face_url">URL de imagen de referencia (cara)</label>
+                <input type="url" id="character_face_url" name="character_face_url"
+                       value="{{ bot.character_face_url or '' }}"
+                       placeholder="https://ejemplo.com/cara-referencia.png">
+                <small>Imagen frontal del personaje para lip-sync en Hedra.</small>
+
+                {% if bot.character_face_url %}
+                <div class="character-face-preview">
+                    <img src="{{ bot.character_face_url }}" alt="Preview"
+                         onerror="this.parentElement.style.display='none';">
+                </div>
+                {% endif %}
+
+                <label for="character_voice_id">ElevenLabs Voice ID</label>
+                <input type="text" id="character_voice_id" name="character_voice_id"
+                       value="{{ bot.character_voice_id or '' }}"
+                       placeholder="pNInz6obpgDQGcFmaJgB">
+                <small>ID de la voz en ElevenLabs. <a href="https://elevenlabs.io/voice-library" target="_blank">Voice Library</a></small>
+
+                <label for="character_personality">Personalidad del personaje</label>
+                <textarea id="character_personality" name="character_personality" rows="5"
+                          placeholder="Describe la personalidad, tono y estilo del personaje...">{{ bot.character_personality or '' }}</textarea>
+                <small>Se incluye en los prompts de guion para mantener el tono consistente.</small>
+            </div>
+        </div>
+
+        <!-- Tab: Schedule -->
+        <div x-show="tab === 'schedule'" x-cloak>
+            <div class="card mb-6">
+                <h3 class="form-section-title">Programacion de publicacion</h3>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="schedule_times">Horarios de publicacion</label>
+                        <input type="text" id="schedule_times" name="schedule_times"
+                               value="{{ bot.posting_schedule.get('times', ['09:00']) | join(', ') }}">
+                        <small>Separar con coma. Ej: 09:00, 18:00</small>
+                    </div>
+                    <div>
+                        <label for="schedule_timezone">Zona horaria</label>
+                        <input type="text" id="schedule_timezone" name="schedule_timezone"
+                               value="{{ bot.posting_schedule.get('timezone', 'Europe/Madrid') }}">
+                    </div>
+                </div>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" name="use_trends" {{ "checked" if bot.use_trends }}>
+                    <span>Usar scraping de tendencias</span>
                 </label>
             </div>
-            <div class="grid" id="tiktok-fields" style="display:none;">
-                <label>
-                    TikTok Client Key
-                    <input type="password" name="tiktok_client_key" placeholder="awcoetft...">
-                </label>
-                <label>
-                    TikTok Client Secret
-                    <input type="password" name="tiktok_client_secret" placeholder="LTRHsLxJ...">
-                </label>
+        </div>
+
+    </form>
+
+    <!-- Action bar (outside form for positioning, uses form attribute) -->
+    <div x-show="tab !== 'credentials'" class="action-bar">
+        <button type="submit" form="edit-form" class="btn btn-primary">Guardar cambios</button>
+        <a href="/bots/{{ bot.slug }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+
+    <!-- Tab: Credentials (outside form — has its own forms) -->
+    <div x-show="tab === 'credentials'" x-cloak>
+
+        {% if credentials %}
+        <div class="card mb-6">
+            <h3 class="form-section-title">Credenciales activas</h3>
+            <div class="cred-list">
+                {% for cred in credentials %}
+                <div class="cred-card">
+                    <div class="cred-card-info">
+                        <div class="flex items-center gap-3">
+                            <span class="cred-platform">{{ cred.platform | capitalize }}</span>
+                            {% if cred.is_active %}
+                            <span class="badge-active" style="font-size:10px;padding:2px 6px;"><span class="pulse-dot" style="width:5px;height:5px;"></span> Activa</span>
+                            {% else %}
+                            <span class="badge-inactive" style="font-size:10px;padding:2px 6px;">Inactiva</span>
+                            {% endif %}
+                        </div>
+                        <span class="cred-user">{{ cred.platform_username or cred.platform_user_id or "Sin cuenta" }}</span>
+                    </div>
+                    <div class="cred-card-actions">
+                        {% if cred.platform == "youtube" %}
+                        <a href="/auth/youtube/start?bot_slug={{ bot.slug }}" class="btn btn-ghost btn-sm">Reconectar</a>
+                        {% endif %}
+                        <button
+                            hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/toggle"
+                            hx-swap="outerHTML"
+                            hx-target="closest .cred-card"
+                            class="btn btn-ghost btn-sm"
+                        >{% if cred.is_active %}Desactivar{% else %}Activar{% endif %}</button>
+                        <button
+                            hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/delete"
+                            hx-swap="outerHTML"
+                            hx-target="closest .cred-card"
+                            hx-confirm="Eliminar credencial de {{ cred.platform }}?"
+                            class="btn btn-danger btn-sm"
+                        >Eliminar</button>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
-            <div class="grid">
-                <label>
-                    Refresh Token (opcional)
-                    <input type="password" name="refresh_token">
-                </label>
-                <label>
-                    ID de usuario en plataforma
-                    <input type="text" name="platform_user_id">
-                </label>
+        </div>
+        {% else %}
+        <div class="cred-empty">
+            No hay credenciales configuradas. Conecta una plataforma para empezar a publicar contenido.
+        </div>
+        {% endif %}
+
+        <!-- YouTube Connect -->
+        <div class="card mb-6">
+            <h3 class="form-section-title">Conectar YouTube</h3>
+            {% set yt_cred = credentials | selectattr("platform", "equalto", "youtube") | list %}
+            {% if yt_cred %}
+            <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);">
+                YouTube ya conectado. Usa "Reconectar" arriba para renovar tokens.
+            </p>
+            {% else %}
+            <form method="post" action="/bots/{{ bot.slug }}/credentials/youtube">
+                <div class="form-grid">
+                    <div>
+                        <label>YouTube Client ID</label>
+                        <input type="password" name="youtube_client_id" required placeholder="123456-xxx.apps.googleusercontent.com">
+                    </div>
+                    <div>
+                        <label>YouTube Client Secret</label>
+                        <input type="password" name="youtube_client_secret" required placeholder="GOCSPX-...">
+                    </div>
+                </div>
+                <small>Credenciales OAuth de Google Cloud Console. Se guardaran y te redirigira a Google para autorizar.</small>
+                <button type="submit" class="btn btn-primary btn-sm" style="margin-top:var(--space-2);">Conectar YouTube</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Manual Credential (IG, TT) -->
+        <div class="card mb-6" x-data="{ showManual: false }">
+            <div class="flex items-center justify-between" style="cursor:pointer;" @click="showManual = !showManual">
+                <h3 class="form-section-title" style="margin-bottom:0;">Agregar credencial manual</h3>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-text-tertiary)"
+                     :style="showManual ? 'transform:rotate(180deg)' : ''" style="transition:transform 0.2s;">
+                    <path d="M4 6l4 4 4-4"/>
+                </svg>
             </div>
-            <button type="submit" class="btn-action primary">Agregar credencial</button>
-        </form>
-        <script>
-        function toggleCharacterFields() {
-            var provider = document.getElementById('video_provider').value;
-            var fieldset = document.getElementById('character-fieldset');
-            fieldset.style.display = (provider === 'talking_head') ? '' : 'none';
-        }
-        function addPrompt() {
-            var container = document.getElementById('prompts-container');
-            var row = document.createElement('div');
-            row.className = 'prompt-row';
-            row.innerHTML = '<input type="text" name="custom_prompt" class="prompt-input" placeholder="Describe una idea de contenido...">'
-                + '<button type="button" class="prompt-remove" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>';
-            container.appendChild(row);
-            row.querySelector('input').focus();
-        }
-        function toggleTiktokFields() {
-            var sel = document.getElementById('cred-platform');
-            var fields = document.getElementById('tiktok-fields');
-            var accessToken = document.getElementById('cred-access-token');
-            if (sel.value === 'tiktok') {
-                fields.style.display = '';
-                accessToken.removeAttribute('required');
-                accessToken.placeholder = 'Se obtendra via OAuth (dejar vacio)';
-            } else {
-                fields.style.display = 'none';
-                accessToken.setAttribute('required', '');
-                accessToken.placeholder = '';
-            }
-        }
-        </script>
-    </details>
+            <div x-show="showManual" x-collapse x-cloak style="margin-top:var(--space-4);">
+                <form method="post" action="/bots/{{ bot.slug }}/credentials"
+                      x-data="{ platform: 'instagram' }">
+                    <div class="form-grid">
+                        <div>
+                            <label>Plataforma</label>
+                            <select name="platform" required x-model="platform">
+                                <option value="instagram">Instagram</option>
+                                <option value="tiktok">TikTok</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Access Token</label>
+                            <input type="password" name="access_token" id="cred-access-token"
+                                   :required="platform !== 'tiktok'"
+                                   :placeholder="platform === 'tiktok' ? 'Se obtendra via OAuth (dejar vacio)' : ''">
+                        </div>
+                    </div>
+                    <div x-show="platform === 'tiktok'" class="form-grid">
+                        <div>
+                            <label>TikTok Client Key</label>
+                            <input type="password" name="tiktok_client_key" placeholder="awcoetft...">
+                        </div>
+                        <div>
+                            <label>TikTok Client Secret</label>
+                            <input type="password" name="tiktok_client_secret" placeholder="LTRHsLxJ...">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div>
+                            <label>Refresh Token (opcional)</label>
+                            <input type="password" name="refresh_token">
+                        </div>
+                        <div>
+                            <label>ID de usuario en plataforma</label>
+                            <input type="text" name="platform_user_id">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Agregar credencial</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
 </div>
+
+<script>
+function addPrompt() {
+    var container = document.getElementById('prompts-container');
+    var row = document.createElement('div');
+    row.className = 'prompt-row';
+    row.innerHTML = '<input type="text" name="custom_prompt" class="prompt-input" placeholder="Describe una idea de contenido...">'
+        + '<button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" title="Eliminar">&times;</button>';
+    container.appendChild(row);
+    row.querySelector('input').focus();
+}
+</script>
 {% endblock %}

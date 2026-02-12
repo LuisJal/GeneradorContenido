@@ -519,31 +519,42 @@ async def bot_toggle_credential(
     cred.is_active = not cred.is_active
     db.commit()
 
-    # Return updated table row for HTMX swap
+    # Return updated credential card for HTMX swap
     status_html = (
-        '<span class="badge-active"><span class="pulse-dot"></span> Activa</span>'
+        '<span class="badge-active" style="font-size:10px;padding:2px 6px;">'
+        '<span class="pulse-dot" style="width:5px;height:5px;"></span> Activa</span>'
         if cred.is_active
-        else '<span class="badge-inactive">Inactiva</span>'
+        else '<span class="badge-inactive" style="font-size:10px;padding:2px 6px;">Inactiva</span>'
     )
     toggle_label = "Desactivar" if cred.is_active else "Activar"
-    return HTMLResponse(f"""<tr>
-        <td>{cred.platform.capitalize()}</td>
-        <td>{cred.platform_user_id or "-"}</td>
-        <td>{status_html}</td>
-        <td>
+    user_display = cred.platform_username or cred.platform_user_id or "Sin cuenta"
+    reconnect = (
+        f'<a href="/auth/youtube/start?bot_slug={slug}" class="btn btn-ghost btn-sm">Reconectar</a>'
+        if cred.platform == "youtube" else ""
+    )
+    return HTMLResponse(f"""<div class="cred-card">
+        <div class="cred-card-info">
+            <div class="flex items-center gap-3">
+                <span class="cred-platform">{cred.platform.capitalize()}</span>
+                {status_html}
+            </div>
+            <span class="cred-user">{user_display}</span>
+        </div>
+        <div class="cred-card-actions">
+            {reconnect}
             <button hx-post="/bots/{slug}/credentials/{cred.id}/toggle"
-                    hx-swap="outerHTML" hx-target="closest tr"
-                    class="btn-action" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                    hx-swap="outerHTML" hx-target="closest .cred-card"
+                    class="btn btn-ghost btn-sm">
                 {toggle_label}
             </button>
             <button hx-post="/bots/{slug}/credentials/{cred.id}/delete"
-                    hx-swap="outerHTML" hx-target="closest tr"
+                    hx-swap="outerHTML" hx-target="closest .cred-card"
                     hx-confirm="Eliminar credencial de {cred.platform}?"
-                    class="btn-action danger" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                    class="btn btn-danger btn-sm">
                 Eliminar
             </button>
-        </td>
-    </tr>""")
+        </div>
+    </div>""")
 
 
 @router.post("/bots/{slug}/credentials/{cred_id}/delete")

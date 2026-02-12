@@ -2,120 +2,176 @@
 
 {% block title %}Nuevo Bot - GeneradorContenido{% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <h1>Crear Nuevo Bot</h1>
-    <p>Configura un nuevo bot de generacion de contenido autonomo</p>
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="/">Dashboard</a>
+    <span class="separator">/</span>
+    <span class="current">Nuevo Bot</span>
 </div>
+{% endblock %}
 
-{% if errors.get("general") %}
-<div class="flash-error">{{ errors.general }}</div>
-{% endif %}
+{% block content %}
+<div x-data="{
+    useTemplate: '{{ templates[0] if templates else '' }}',
+    provider: 'aiml_kling',
+    showAdvanced: false
+}">
 
-<form method="post" action="/bots/new">
-    <fieldset>
-        <legend>Informacion basica</legend>
+    <h1 style="margin:0 0 var(--space-2);font-size:var(--text-xl);">Crear Nuevo Bot</h1>
+    <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-6);">
+        Configura un nuevo bot de generacion de contenido autonomo.
+    </p>
 
-        <label for="name">Nombre del Bot *</label>
-        <input type="text" id="name" name="name" required maxlength="100" placeholder="FitBot">
+    {% if errors.get("general") %}
+    <div class="flash-error">{{ errors.general }}</div>
+    {% endif %}
 
-        <label for="niche">Nicho *</label>
-        <input type="text" id="niche" name="niche" required maxlength="100" placeholder="fitness">
+    <form method="post" action="/bots/new">
 
-        <label for="template">Cargar desde template</label>
-        <select id="template" name="template">
-            <option value="">-- Sin template --</option>
-            {% for t in templates %}
-            <option value="{{ t }}">{{ t | capitalize }}</option>
-            {% endfor %}
-        </select>
+        <!-- Template selector -->
+        {% if templates %}
+        <div class="card mb-6">
+            <h3 class="form-section-title">Empezar desde template</h3>
+            <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
+                Selecciona un template para cargar configuracion predefinida, o elige "Personalizado" para empezar desde cero.
+            </p>
+            <div class="template-grid">
+                <label class="template-option" :class="{ 'active': useTemplate === '' }">
+                    <input type="radio" name="template" value="" x-model="useTemplate" class="sr-only">
+                    <span class="template-icon">&#9881;</span>
+                    <span class="template-name">Personalizado</span>
+                    <span class="template-desc">Configuracion manual</span>
+                </label>
+                {% for t in templates %}
+                <label class="template-option" :class="{ 'active': useTemplate === '{{ t }}' }">
+                    <input type="radio" name="template" value="{{ t }}" x-model="useTemplate" class="sr-only">
+                    <span class="template-icon">
+                        {% if t == 'fitness' %}&#127947;{% elif t == 'tech' %}&#128187;{% elif t == 'finance' %}&#128176;{% elif t == 'madridgirl' %}&#9917;{% else %}&#128218;{% endif %}
+                    </span>
+                    <span class="template-name">{{ t | capitalize }}</span>
+                    <span class="template-desc">Template {{ t }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <input type="hidden" name="template" value="">
+        {% endif %}
 
-        <label for="niche_description">Descripcion del nicho</label>
-        <textarea id="niche_description" name="niche_description" rows="3" placeholder="Describe el nicho en detalle para que la IA genere mejor contenido..."></textarea>
+        <!-- Essential fields (always visible) -->
+        <div class="card mb-6">
+            <h3 class="form-section-title">Informacion basica</h3>
 
-        <label for="content_style">Estilo de contenido</label>
-        <input type="text" id="content_style" name="content_style" placeholder="Energetico, motivacional, conciso">
+            <div class="form-grid">
+                <div>
+                    <label for="name">Nombre del Bot *</label>
+                    <input type="text" id="name" name="name" required maxlength="100" placeholder="FitBot">
+                </div>
+                <div>
+                    <label for="niche">Nicho *</label>
+                    <input type="text" id="niche" name="niche" required maxlength="100" placeholder="fitness">
+                </div>
+            </div>
 
-        <label for="brand_style">Identidad visual del canal</label>
-        <textarea id="brand_style" name="brand_style" rows="4" placeholder="Describe el estilo visual para todos los videos. Ej: 'Anime shonen, colores neon vibrantes, escenas de accion dinamicas...'"></textarea>
-        <small>Define la estetica visual consistente para mantener coherencia en el canal.</small>
+            <div x-show="useTemplate === ''" x-collapse>
+                <label for="niche_description">Descripcion del nicho</label>
+                <textarea id="niche_description" name="niche_description" rows="3" placeholder="Describe el nicho en detalle para que la IA genere mejor contenido..."></textarea>
 
-        <label for="language">Idioma</label>
-        <select id="language" name="language">
-            <option value="es" selected>Espanol</option>
-            <option value="en">English</option>
-        </select>
+                <label for="content_style">Estilo de contenido</label>
+                <input type="text" id="content_style" name="content_style" placeholder="Energetico, motivacional, conciso">
 
-        <label for="contact_email">Email de contacto</label>
-        <input type="email" id="contact_email" name="contact_email" placeholder="tu@email.com">
-    </fieldset>
+                <label for="brand_style">Identidad visual del canal</label>
+                <textarea id="brand_style" name="brand_style" rows="3" placeholder="Describe el estilo visual para todos los videos..."></textarea>
+            </div>
 
-    <fieldset>
-        <legend>Configuracion de video</legend>
+            <div class="form-grid">
+                <div>
+                    <label for="language">Idioma</label>
+                    <select id="language" name="language">
+                        <option value="es" selected>Espanol</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="contact_email">Email de contacto</label>
+                    <input type="email" id="contact_email" name="contact_email" placeholder="tu@email.com">
+                </div>
+            </div>
+        </div>
 
-        <label for="video_provider">Proveedor de video</label>
-        <select id="video_provider" name="video_provider" onchange="toggleCharacterFields()">
-            <option value="aiml_kling" selected>Kling V3 via AIML (3-15s, economico)</option>
-            <option value="veo3">Google Veo 3 (Scene Extension hasta 60s)</option>
-            <option value="kling3">Kling 3.0 (directo)</option>
-            <option value="talking_head">Talking Head (ElevenLabs + Hedra)</option>
-        </select>
+        <!-- Video config -->
+        <div class="card mb-6">
+            <h3 class="form-section-title">Video</h3>
 
-        <label for="video_duration_seconds">Duracion del video (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="10" min="3" max="60">
-        <small>Veo3: hasta 8s en un solo clip, o hasta 60s con Scene Extension (8s inicial + extensiones de 7s).</small>
+            <label for="video_provider">Proveedor de video</label>
+            <select id="video_provider" name="video_provider" x-model="provider">
+                <option value="aiml_kling" selected>Kling V3 via AIML (3-15s, economico)</option>
+                <option value="veo3">Google Veo 3 (Scene Extension hasta 60s)</option>
+                <option value="kling3">Kling 3.0 (directo)</option>
+                <option value="talking_head">Talking Head (ElevenLabs + Hedra)</option>
+            </select>
 
-        <label for="videos_per_day">Videos por dia</label>
-        <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">
-    </fieldset>
+            <div class="form-grid">
+                <div>
+                    <label for="video_duration_seconds">Duracion (segundos)</label>
+                    <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="10" min="3" max="60">
+                </div>
+                <div>
+                    <label for="videos_per_day">Videos por dia</label>
+                    <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">
+                </div>
+            </div>
+        </div>
 
-    <fieldset id="character-fieldset" style="display:none;">
-        <legend>Personaje (Talking Head)</legend>
-        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-            Configura la cara y voz del personaje IA. Se usaran en todos los videos para consistencia.
-        </p>
+        <!-- Character fields (talking_head only) -->
+        <div x-show="provider === 'talking_head'" x-collapse x-cloak>
+            <div class="card mb-6">
+                <h3 class="form-section-title">Personaje (Talking Head)</h3>
+                <p style="color:var(--color-text-tertiary);font-size:var(--text-sm);margin-bottom:var(--space-4);">
+                    Configura la cara y voz del personaje IA.
+                </p>
 
-        <label for="character_face_url">URL de imagen de referencia (cara)</label>
-        <input type="url" id="character_face_url" name="character_face_url"
-               placeholder="https://ejemplo.com/cara-referencia.png">
-        <small>Imagen frontal del personaje para lip-sync.</small>
+                <label for="character_face_url">URL de imagen de referencia (cara)</label>
+                <input type="url" id="character_face_url" name="character_face_url"
+                       placeholder="https://ejemplo.com/cara-referencia.png">
+                <small>Imagen frontal del personaje para lip-sync.</small>
 
-        <label for="character_voice_id">ElevenLabs Voice ID</label>
-        <input type="text" id="character_voice_id" name="character_voice_id"
-               placeholder="pNInz6obpgDQGcFmaJgB">
-        <small>ID de la voz en ElevenLabs.</small>
+                <label for="character_voice_id">ElevenLabs Voice ID</label>
+                <input type="text" id="character_voice_id" name="character_voice_id"
+                       placeholder="pNInz6obpgDQGcFmaJgB">
 
-        <label for="character_personality">Personalidad del personaje</label>
-        <textarea id="character_personality" name="character_personality" rows="4"
-                  placeholder="Describe la personalidad, tono y estilo del personaje..."></textarea>
-    </fieldset>
+                <label for="character_personality">Personalidad del personaje</label>
+                <textarea id="character_personality" name="character_personality" rows="4"
+                          placeholder="Describe la personalidad, tono y estilo del personaje..."></textarea>
+            </div>
+        </div>
 
-    <fieldset>
-        <legend>Programacion de publicacion</legend>
+        <!-- Schedule -->
+        <div class="card mb-6">
+            <h3 class="form-section-title">Programacion</h3>
 
-        <label for="schedule_times">Horarios de publicacion (separados por coma)</label>
-        <input type="text" id="schedule_times" name="schedule_times" value="09:00" placeholder="09:00, 18:00">
-        <small>Horas a las que se publicara contenido aprobado automaticamente.</small>
+            <div class="form-grid">
+                <div>
+                    <label for="schedule_times">Horarios de publicacion</label>
+                    <input type="text" id="schedule_times" name="schedule_times" value="09:00" placeholder="09:00, 18:00">
+                    <small>Separar con coma.</small>
+                </div>
+                <div>
+                    <label for="schedule_timezone">Zona horaria</label>
+                    <input type="text" id="schedule_timezone" name="schedule_timezone" value="Europe/Madrid">
+                </div>
+            </div>
 
-        <label for="schedule_timezone">Zona horaria</label>
-        <input type="text" id="schedule_timezone" name="schedule_timezone" value="Europe/Madrid">
+            <label class="checkbox-label">
+                <input type="checkbox" name="use_trends" checked>
+                <span>Usar scraping de tendencias</span>
+            </label>
+        </div>
 
-        <label for="use_trends">
-            <input type="checkbox" id="use_trends" name="use_trends" checked>
-            Usar scraping de tendencias
-        </label>
-    </fieldset>
-
-    <div class="action-bar">
-        <button type="submit" class="btn-gradient">Crear Bot</button>
-        <a href="/" class="btn-action">Cancelar</a>
-    </div>
-</form>
-<script>
-function toggleCharacterFields() {
-    var provider = document.getElementById('video_provider').value;
-    var fieldset = document.getElementById('character-fieldset');
-    fieldset.style.display = (provider === 'talking_head') ? '' : 'none';
-}
-</script>
+        <div class="action-bar">
+            <button type="submit" class="btn btn-primary">Crear Bot</button>
+            <a href="/" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

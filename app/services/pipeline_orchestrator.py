@@ -11,9 +11,11 @@ The pipeline runs in three resumable phases:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import traceback
-from typing import Optional
+import uuid
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -181,6 +183,117 @@ async def run_pipeline(bot: Bot, db: Session) -> ContentItem:
 
 
 # ------------------------------------------------------------------
+# Story Arc: sequential multi-chapter generation
+# ------------------------------------------------------------------
+
+
+async def run_story_arc_pipeline(bot: Bot, db: Session) -> List[ContentItem]:
+    """Generate all chapters of a story arc sequentially.
+
+    Each chapter goes through Phase 1 (script + video submission).
+    Later chapters receive previous scripts/prompts for continuity.
+    The existing video polling job handles Phase 2 for each item.
+
+    Returns a list of ContentItem objects (one per chapter).
+    """
+    total = bot.story_arc_chapters or 3
+    arc_id = uuid.uuid4().hex[:8]
+
+    # 1. Select topic (shared across all chapters)
+    topic = _select_topic(bot, db)
+
+    _log(db, bot.id, None, "story_arc_start",
+         f"Starting story arc '{arc_id}' ({total} chapters): {topic}")
+
+    # 2. Generate the story arc premise
+    premise = await script_generator.generate_story_arc_premise(bot, topic, total)
+
+    _log(db, bot.id, None, "arc_premise_generated",
+         f"Arc premise generated (length={len(premise)})")
+
+    items: List[ContentItem] = []
+    previous_scripts: List[dict] = []
+    previous_video_prompts: List[str] = []
+
+    for chapter in range(1, total + 1):
+        content = ContentItem(
+            bot_id=bot.id,
+            story_arc_id=arc_id,
+            story_arc_chapter=chapter,
+            story_arc_total=total,
+            story_arc_premise=premise,
+            trend_topic=topic,
+        )
+        db.add(content)
+        db.commit()
+
+        content_id = content.id
+        _log(db, bot.id, content_id, "arc_chapter_start",
+             f"Generating chapter {chapter}/{total} of arc '{arc_id}'")
+
+        try:
+            # Script generation with arc context
+            _set_status(db, content, ContentStatus.SCRIPT_GENERATING)
+            script = await script_generator.generate_content_script(
+                bot, topic,
+                arc_premise=premise,
+                arc_chapter=chapter,
+                arc_total=total,
+                previous_scripts=list(previous_scripts),
+            )
+            content.script = json.dumps(script, ensure_ascii=False)
+            _set_status(db, content, ContentStatus.SCRIPT_READY)
+            _log(db, bot.id, content_id, "script_generated",
+                 f"Chapter {chapter} script ready")
+
+            # Video prompt with arc context
+            video_prompt = await script_generator.generate_video_prompt(
+                bot, script,
+                arc_premise=premise,
+                arc_chapter=chapter,
+                arc_total=total,
+                previous_video_prompts=list(previous_video_prompts),
+            )
+            content.video_prompt = video_prompt
+            db.commit()
+            _log(db, bot.id, content_id, "video_prompt_generated",
+                 f"Chapter {chapter} video prompt ready")
+
+            # Submit video generation
+            _set_status(db, content, ContentStatus.VIDEO_GENERATING)
+            task_id = await video_generator.submit_video_generation(
+                bot, video_prompt, content_id
+            )
+            content.video_task_id = task_id
+            content.video_provider = bot.video_provider
+            _set_status(db, content, ContentStatus.VIDEO_POLLING)
+            _log(db, bot.id, content_id, "video_submitted",
+                 f"Chapter {chapter}/{total} task={task_id}")
+
+            # Track for next chapter's context
+            previous_scripts.append(script)
+            previous_video_prompts.append(video_prompt)
+            items.append(content)
+
+        except Exception as exc:
+            error_msg = f"{type(exc).__name__}: {exc}"
+            _set_error(db, content, error_msg)
+            _log(db, bot.id, content_id, "arc_chapter_error",
+                 error_msg, level="ERROR")
+            items.append(content)
+            break  # Stop generating further chapters if one fails
+
+        # Brief pause between chapters to avoid Gemini rate limits
+        if chapter < total:
+            await asyncio.sleep(2)
+
+    _log(db, bot.id, None, "story_arc_submitted",
+         f"Arc '{arc_id}': {len([i for i in items if i.status == ContentStatus.VIDEO_POLLING.value])}/{total} chapters submitted")
+
+    return items
+
+
+# ------------------------------------------------------------------
 # Phase 2: Video ready -> Descriptions -> Dashboard approval
 # ------------------------------------------------------------------
 
@@ -228,7 +341,9 @@ async def resume_after_video(content: ContentItem, bot: Bot, db: Session) -> Con
         topic = content.trend_topic or ""
 
         descriptions = await script_generator.generate_content_descriptions(
-            bot, script, topic
+            bot, script, topic,
+            arc_chapter=content.story_arc_chapter,
+            arc_total=content.story_arc_total,
         )
 
         content.description_instagram = descriptions.get("instagram", "")

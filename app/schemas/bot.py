@@ -22,13 +22,15 @@ class BotCreate(BaseModel):
     posting_schedule: PostingSchedule = Field(default_factory=PostingSchedule)
     use_trends: bool = True
     custom_prompts: List[str] = Field(default_factory=list)
-    video_provider: str = Field(default="veo3", pattern="^(veo3|kling3)$")
+    video_provider: str = Field(default="veo3", pattern="^(veo3|kling3|aiml_kling)$")
     video_duration_seconds: int = Field(default=15, ge=5, le=60)
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-2.5-flash"
     telegram_chat_id: Optional[str] = None
     contact_email: Optional[str] = None
     script_system_prompt: str = ""
+    story_arc_enabled: bool = False
+    story_arc_chapters: int = Field(default=3, ge=2, le=5)
     template: Optional[str] = None
 
 
@@ -44,13 +46,15 @@ class BotUpdate(BaseModel):
     posting_schedule: Optional[PostingSchedule] = None
     use_trends: Optional[bool] = None
     custom_prompts: Optional[List[str]] = None
-    video_provider: Optional[str] = Field(default=None, pattern="^(veo3|kling3)$")
+    video_provider: Optional[str] = Field(default=None, pattern="^(veo3|kling3|aiml_kling)$")
     video_duration_seconds: Optional[int] = Field(default=None, ge=5, le=60)
     gemini_api_key: Optional[str] = None
     gemini_model: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     contact_email: Optional[str] = None
     script_system_prompt: Optional[str] = None
+    story_arc_enabled: Optional[bool] = None
+    story_arc_chapters: Optional[int] = Field(default=None, ge=2, le=5)
 
 
 class BotResponse(BaseModel):
@@ -71,6 +75,8 @@ class BotResponse(BaseModel):
     gemini_model: str
     telegram_chat_id: Optional[str]
     contact_email: Optional[str]
+    story_arc_enabled: bool
+    story_arc_chapters: int
     created_at: datetime
     updated_at: datetime
 

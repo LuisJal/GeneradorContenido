@@ -104,6 +104,39 @@ class GeminiClient:
             raise
 
     # ------------------------------------------------------------------
+    # Plain text generation (for story arc premises, etc.)
+    # ------------------------------------------------------------------
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type(_RETRYABLE),
+        reraise=True,
+    )
+    def generate_text(self, system_prompt: str, user_prompt: str) -> str:
+        """Generate plain text via Gemini (no JSON schema)."""
+        try:
+            response = self._client.models.generate_content(
+                model=self._model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.8,
+                    max_output_tokens=2048,
+                ),
+            )
+            text = (response.text or "").strip()
+            if not text:
+                raise GeminiClientError("Gemini returned empty text response.")
+            logger.info("Text generated successfully (length=%d)", len(text))
+            return text
+        except GeminiClientError:
+            raise
+        except Exception as exc:
+            logger.error("Gemini generate_text failed: %s", exc)
+            raise
+
+    # ------------------------------------------------------------------
     # Video prompt generation
     # ------------------------------------------------------------------
 
@@ -117,6 +150,7 @@ class GeminiClient:
         self,
         script: dict,
         bot_context: Optional[dict] = None,
+        arc_context: Optional[dict] = None,
     ) -> str:
         """Convert a structured script dict into a narrative video prompt.
 
@@ -177,6 +211,18 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
         if ctx.get("content_style"):
             system_instruction += f"\nTone/style: {ctx['content_style']}"
 
+        if arc_context:
+            system_instruction += (
+                f"\n\n--- MULTI-PART STORY ARC ---\n"
+                f"This video is Part {arc_context['chapter']} of {arc_context['total']}.\n"
+                f"Story premise: {arc_context['premise']}\n"
+                f"CRITICAL: Maintain EXACT visual consistency with the previous parts. "
+                f"Same characters (appearance, clothing), same locations, same visual style. "
+                f"The viewer must recognize this as the same story.\n"
+            )
+            for i, prev in enumerate(arc_context.get("previous_prompts", []), 1):
+                system_instruction += f"\nPart {i} video prompt (reference): {prev}\n"
+
         user_content = (
             f"Create a {duration}-second video prompt based on this script:\n\n"
             f"HOOK (opening moment): {script.get('hook', '')}\n"
@@ -184,6 +230,13 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
             f"ENDING (call to action): {script.get('cta', '')}\n"
             f"VISUAL IDEAS: {json.dumps(script.get('visual_cues', []), ensure_ascii=False)}"
         )
+
+        if arc_context and arc_context.get("chapter", 1) > 1:
+            user_content += (
+                f"\n\nIMPORTANT: Reuse the EXACT character descriptions, "
+                f"setting details, and visual style from the previous part(s). "
+                f"Only the story events change."
+            )
 
         try:
             response = self._client.models.generate_content(
@@ -224,6 +277,8 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
         script: dict,
         topic: str,
         niche: str,
+        arc_chapter: Optional[int] = None,
+        arc_total: Optional[int] = None,
     ) -> dict:
         """Generate platform-specific descriptions for a video.
 
@@ -243,6 +298,18 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
             "- All text must be in the SAME language as the script.\n"
             "- Return ONLY valid JSON matching the schema."
         )
+
+        if arc_chapter and arc_total:
+            system_instruction += (
+                f"\n\nThis is Part {arc_chapter} of {arc_total} in a story series.\n"
+                f"- ALL descriptions must mention this is part of a series.\n"
+                f"- YouTube title MUST end with ' (Parte {arc_chapter}/{arc_total})'.\n"
+                f"- Instagram and TikTok captions should mention this is part of a series.\n"
+            )
+            if arc_chapter > 1:
+                system_instruction += (
+                    f"- Include a mention to watch from Part 1 / Mira desde la Parte 1.\n"
+                )
 
         response_schema = {
             "type": "object",
@@ -285,6 +352,9 @@ The GOOD example tells a story with character, emotion, action, and a satisfying
             f"Script body: {script.get('body', '')}\n"
             f"Script CTA: {script.get('cta', '')}"
         )
+
+        if arc_chapter and arc_total:
+            user_content += f"\nThis is Part {arc_chapter} of {arc_total} in a story series."
 
         try:
             response = self._client.models.generate_content(

@@ -44,6 +44,12 @@ class ContentItem(Base):
     trend_topic: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     custom_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Story arc
+    story_arc_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    story_arc_chapter: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    story_arc_total: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    story_arc_premise: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Script
     script: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     script_model: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
+from typing import List, Optional
 
 from app.config import settings
 from app.integrations.gemini_client import GeminiClient, GeminiClientError
@@ -72,7 +72,60 @@ def _get_client(bot: Bot) -> GeminiClient:
 # ------------------------------------------------------------------
 
 
-async def generate_content_script(bot: Bot, topic: str) -> dict:
+async def generate_story_arc_premise(
+    bot: Bot, topic: str, total_chapters: int
+) -> str:
+    """Generate a high-level story premise for a multi-part arc.
+
+    Returns a 2-3 paragraph synopsis covering all chapters: characters,
+    setting, conflict, and how it resolves across the parts.
+    """
+    logger.info(
+        "Generating arc premise for bot='%s' topic='%s' chapters=%d",
+        bot.name, topic, total_chapters,
+    )
+    client = _get_client(bot)
+    system_prompt = _build_system_prompt(bot)
+
+    user_prompt = (
+        f"Create a story premise for a {total_chapters}-part short-form video series "
+        f"about: {topic}\n\n"
+        f"Each part is {bot.video_duration_seconds} seconds long.\n\n"
+        f"The premise must include:\n"
+        f"1. Main character(s) with specific visual descriptions "
+        f"(appearance, clothing, age, distinguishing features)\n"
+        f"2. Setting/location (specific and consistent across all parts)\n"
+        f"3. The overall conflict or narrative question\n"
+        f"4. How the story arc progresses across all {total_chapters} parts "
+        f"(Part 1: setup, Part 2: complication, Part 3: resolution)\n\n"
+        f"Write 2-3 paragraphs. Be specific about visual details so video "
+        f"prompts can maintain consistency across all parts."
+    )
+
+    try:
+        premise = await asyncio.to_thread(
+            client.generate_text, system_prompt, user_prompt
+        )
+        logger.info("Arc premise generated for bot='%s' (length=%d)", bot.name, len(premise))
+        return premise
+    except GeminiClientError:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error generating arc premise: %s", exc)
+        raise GeminiClientError(
+            f"Arc premise generation failed for bot '{bot.name}': {exc}"
+        ) from exc
+
+
+async def generate_content_script(
+    bot: Bot,
+    topic: str,
+    *,
+    arc_premise: Optional[str] = None,
+    arc_chapter: Optional[int] = None,
+    arc_total: Optional[int] = None,
+    previous_scripts: Optional[List[dict]] = None,
+) -> dict:
     """Generate a structured video script for *topic* using the bot's config.
 
     Returns a dict with keys: ``hook``, ``body``, ``cta``, ``visual_cues``.
@@ -85,6 +138,36 @@ async def generate_content_script(bot: Bot, topic: str) -> dict:
     user_prompt = (
         f"Create a short-form video script about the following topic:\n\n"
         f"{topic}\n\n"
+    )
+
+    if arc_premise and arc_chapter and arc_total:
+        user_prompt += (
+            f"--- STORY ARC CONTEXT ---\n"
+            f"This is Part {arc_chapter} of {arc_total} in a multi-part story.\n"
+            f"Overall story premise:\n{arc_premise}\n\n"
+        )
+        if previous_scripts:
+            for i, prev in enumerate(previous_scripts, 1):
+                user_prompt += (
+                    f"Part {i} script (already generated):\n"
+                    f"  Hook: {prev.get('hook', '')}\n"
+                    f"  Body: {prev.get('body', '')}\n"
+                    f"  CTA: {prev.get('cta', '')}\n\n"
+                )
+        if arc_chapter < arc_total:
+            user_prompt += (
+                f"END this part with a cliffhanger or unresolved moment that "
+                f"makes viewers want to watch Part {arc_chapter + 1}.\n"
+                f"The CTA should tell viewers to watch the next part.\n\n"
+            )
+        else:
+            user_prompt += (
+                f"This is the FINAL part. Resolve the story satisfyingly.\n"
+                f"The CTA should tell viewers to watch from Part 1 if they "
+                f"haven't, or follow for more stories.\n\n"
+            )
+
+    user_prompt += (
         f"The script must contain:\n"
         f"1. A powerful hook for the first 2 seconds that grabs attention.\n"
         f"2. A concise body that delivers value.\n"
@@ -113,6 +196,9 @@ async def generate_content_descriptions(
     bot: Bot,
     script: dict,
     topic: str,
+    *,
+    arc_chapter: Optional[int] = None,
+    arc_total: Optional[int] = None,
 ) -> dict:
     """Generate platform-specific descriptions (Instagram, YouTube, TikTok).
 
@@ -125,7 +211,8 @@ async def generate_content_descriptions(
 
     try:
         descriptions = await asyncio.to_thread(
-            client.generate_descriptions, script, topic, niche
+            client.generate_descriptions, script, topic, niche,
+            arc_chapter=arc_chapter, arc_total=arc_total,
         )
         logger.info("Descriptions generated for bot='%s'", bot.name)
         return descriptions
@@ -151,7 +238,15 @@ def _build_bot_context(bot: Bot) -> dict:
     }
 
 
-async def generate_video_prompt(bot: Bot, script: dict) -> str:
+async def generate_video_prompt(
+    bot: Bot,
+    script: dict,
+    *,
+    arc_premise: Optional[str] = None,
+    arc_chapter: Optional[int] = None,
+    arc_total: Optional[int] = None,
+    previous_video_prompts: Optional[List[str]] = None,
+) -> str:
     """Convert a script dict into a visual prompt for AI video generation.
 
     Returns a single string prompt optimised for video-generation models.
@@ -161,9 +256,18 @@ async def generate_video_prompt(bot: Bot, script: dict) -> str:
     client = _get_client(bot)
     bot_context = _build_bot_context(bot)
 
+    arc_context = None
+    if arc_premise and arc_chapter and arc_total:
+        arc_context = {
+            "premise": arc_premise,
+            "chapter": arc_chapter,
+            "total": arc_total,
+            "previous_prompts": previous_video_prompts or [],
+        }
+
     try:
         prompt = await asyncio.to_thread(
-            client.generate_video_prompt, script, bot_context
+            client.generate_video_prompt, script, bot_context, arc_context
         )
         logger.info("Video prompt generated for bot='%s'", bot.name)
         return prompt

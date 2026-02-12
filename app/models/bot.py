@@ -51,6 +51,10 @@ class Bot(Base):
     brand_style: Mapped[str] = mapped_column(Text, default="")
     trend_sources: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
 
+    # Story arc
+    story_arc_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    story_arc_chapters: Mapped[int] = mapped_column(Integer, default=3)
+
     created_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, server_default=func.now()
     )

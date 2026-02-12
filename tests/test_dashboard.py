@@ -137,3 +137,38 @@ def test_bot_detail_404(client):
     """Non-existent bot should return 404."""
     response = client.get("/bots/nonexistent-bot-xyz")
     assert response.status_code == 404
+
+
+# ------------------------------------------------------------------
+# YouTube OAuth routes
+# ------------------------------------------------------------------
+
+
+def test_youtube_oauth_start_no_credential(client):
+    """Should return error if YouTube credential is not configured for bot."""
+    # Create a bot first
+    client.post("/bots/new", data={
+        "name": "OAuthTestBot", "niche": "tech",
+        "niche_description": "", "content_style": "", "language": "es",
+        "videos_per_day": "1", "schedule_times": "09:00",
+        "schedule_timezone": "Europe/Madrid",
+        "video_provider": "veo3", "video_duration_seconds": "15",
+        "contact_email": "", "template": "",
+    })
+    response = client.get("/auth/youtube/start?bot_slug=oauthtestbot")
+    assert response.status_code == 400
+    assert "Client ID" in response.text
+
+
+def test_youtube_oauth_callback_invalid_state(client):
+    """Should show error for invalid CSRF state."""
+    response = client.get("/auth/youtube/callback?code=test&state=invalid")
+    assert response.status_code == 200
+    assert "invalido" in response.text.lower()
+
+
+def test_youtube_oauth_callback_denied(client):
+    """Should show error when user denies OAuth access."""
+    response = client.get("/auth/youtube/callback?error=access_denied&state=x")
+    assert response.status_code == 200
+    assert "rechazo" in response.text.lower()

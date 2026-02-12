@@ -45,15 +45,35 @@
         <label for="video_provider">Proveedor</label>
         <select id="video_provider" name="video_provider">
             <option value="aiml_kling" {{ "selected" if bot.video_provider == "aiml_kling" }}>Kling V3 via AIML (3-15s, economico)</option>
-            <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3 (max 8s)</option>
+            <option value="veo3" {{ "selected" if bot.video_provider == "veo3" }}>Google Veo 3 (Scene Extension hasta 60s)</option>
             <option value="kling3" {{ "selected" if bot.video_provider == "kling3" }}>Kling 3.0 (directo)</option>
         </select>
 
         <label for="video_duration_seconds">Duracion (segundos)</label>
-        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="15">
+        <input type="number" id="video_duration_seconds" name="video_duration_seconds" value="{{ bot.video_duration_seconds }}" min="3" max="60">
+        <small>Veo3: hasta 8s en un solo clip, o hasta 60s con Scene Extension (8s inicial + extensiones de 7s).</small>
 
         <label for="videos_per_day">Videos por dia</label>
         <input type="number" id="videos_per_day" name="videos_per_day" value="{{ bot.videos_per_day }}" min="1" max="10">
+    </fieldset>
+
+    <fieldset>
+        <legend>Arco Narrativo</legend>
+        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Genera historias de varias partes donde cada video continua la narrativa.
+            Con Veo3 (8s), 3 videos = 24 segundos de historia conectada.
+        </p>
+
+        <label for="story_arc_enabled">
+            <input type="checkbox" id="story_arc_enabled" name="story_arc_enabled"
+                   {{ "checked" if bot.story_arc_enabled }}>
+            Habilitar arcos narrativos
+        </label>
+
+        <label for="story_arc_chapters">Capitulos por arco</label>
+        <input type="number" id="story_arc_chapters" name="story_arc_chapters"
+               value="{{ bot.story_arc_chapters or 3 }}" min="2" max="5">
+        <small>Numero de videos que componen cada historia (recomendado: 3).</small>
     </fieldset>
 
     <fieldset>
@@ -81,14 +101,14 @@
 <!-- ===== CREDENTIALS SECTION (always visible) ===== -->
 <div class="credentials-section">
     <h2>Credenciales de Redes Sociales</h2>
-    <p>Configura las credenciales de publicacion para este bot. Cada plataforma necesita su propio access token.</p>
+    <p>Configura las credenciales de publicacion para este bot.</p>
 
     {% if credentials %}
     <table>
         <thead>
             <tr>
                 <th>Plataforma</th>
-                <th>Usuario</th>
+                <th>Cuenta</th>
                 <th>Estado</th>
                 <th>Acciones</th>
             </tr>
@@ -97,7 +117,7 @@
             {% for cred in credentials %}
             <tr>
                 <td>{{ cred.platform | capitalize }}</td>
-                <td>{{ cred.platform_user_id or "-" }}</td>
+                <td>{{ cred.platform_username or cred.platform_user_id or "-" }}</td>
                 <td>
                     {% if cred.is_active %}
                     <span class="badge-active"><span class="pulse-dot"></span> Activa</span>
@@ -106,6 +126,12 @@
                     {% endif %}
                 </td>
                 <td>
+                    {% if cred.platform == "youtube" %}
+                    <a href="/auth/youtube/start?bot_slug={{ bot.slug }}"
+                       class="btn-action" style="padding:0.3rem 0.8rem;font-size:0.8rem;">
+                        Reconectar
+                    </a>
+                    {% endif %}
                     <button
                         hx-post="/bots/{{ bot.slug }}/credentials/{{ cred.id }}/toggle"
                         hx-swap="outerHTML"
@@ -132,25 +158,59 @@
     </table>
     {% else %}
     <div class="cred-empty">
-        No hay credenciales configuradas. Agrega una credencial para empezar a publicar contenido.
+        No hay credenciales configuradas. Conecta una plataforma para empezar a publicar contenido.
     </div>
     {% endif %}
 
-    <div class="cred-add-form">
-        <h3>Agregar credencial</h3>
-        <form method="post" action="/bots/{{ bot.slug }}/credentials">
+    <!-- ===== YOUTUBE CONNECT ===== -->
+    <div class="cred-add-form" style="margin-top: 1.5rem;">
+        <h3>Conectar YouTube</h3>
+        {% set yt_cred = credentials | selectattr("platform", "equalto", "youtube") | list %}
+        {% if yt_cred %}
+        <p>YouTube ya conectado. Usa "Reconectar" en la tabla para renovar tokens.</p>
+        {% else %}
+        <form method="post" action="/bots/{{ bot.slug }}/credentials/youtube">
+            <div class="grid">
+                <label>
+                    YouTube Client ID
+                    <input type="password" name="youtube_client_id" required placeholder="123456-xxx.apps.googleusercontent.com">
+                </label>
+                <label>
+                    YouTube Client Secret
+                    <input type="password" name="youtube_client_secret" required placeholder="GOCSPX-...">
+                </label>
+            </div>
+            <small>Credenciales OAuth de Google Cloud Console para este bot. Se guardaran y te redirigira a Google para autorizar.</small>
+            <button type="submit" class="btn-action primary" style="margin-top:0.5rem;">Conectar YouTube</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- ===== MANUAL CREDENTIAL FORM (for IG, TT) ===== -->
+    <details class="cred-add-form" style="margin-top: 1.5rem;">
+        <summary><h3 style="display:inline;">Agregar credencial manual (Instagram / TikTok)</h3></summary>
+        <form method="post" action="/bots/{{ bot.slug }}/credentials" style="margin-top:1rem;">
             <div class="grid">
                 <label>
                     Plataforma
-                    <select name="platform" required>
+                    <select name="platform" required id="cred-platform" onchange="toggleTiktokFields()">
                         <option value="instagram">Instagram</option>
-                        <option value="youtube">YouTube</option>
                         <option value="tiktok">TikTok</option>
                     </select>
                 </label>
                 <label>
                     Access Token
-                    <input type="password" name="access_token" required>
+                    <input type="password" name="access_token" id="cred-access-token" required>
+                </label>
+            </div>
+            <div class="grid" id="tiktok-fields" style="display:none;">
+                <label>
+                    TikTok Client Key
+                    <input type="password" name="tiktok_client_key" placeholder="awcoetft...">
+                </label>
+                <label>
+                    TikTok Client Secret
+                    <input type="password" name="tiktok_client_secret" placeholder="LTRHsLxJ...">
                 </label>
             </div>
             <div class="grid">
@@ -165,6 +225,22 @@
             </div>
             <button type="submit" class="btn-action primary">Agregar credencial</button>
         </form>
-    </div>
+        <script>
+        function toggleTiktokFields() {
+            var sel = document.getElementById('cred-platform');
+            var fields = document.getElementById('tiktok-fields');
+            var accessToken = document.getElementById('cred-access-token');
+            if (sel.value === 'tiktok') {
+                fields.style.display = '';
+                accessToken.removeAttribute('required');
+                accessToken.placeholder = 'Se obtendra via OAuth (dejar vacio)';
+            } else {
+                fields.style.display = 'none';
+                accessToken.setAttribute('required', '');
+                accessToken.placeholder = '';
+            }
+        }
+        </script>
+    </details>
 </div>
 {% endblock %}

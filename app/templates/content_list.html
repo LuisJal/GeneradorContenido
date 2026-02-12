@@ -26,6 +26,7 @@
         <tr>
             <th>#</th>
             <th>Tema</th>
+            <th>Arco</th>
             <th>Estado</th>
             <th>Proveedor</th>
             <th>Creado</th>
@@ -34,9 +35,16 @@
     </thead>
     <tbody>
         {% for item in items %}
-        <tr>
+        <tr{% if item.story_arc_id %} class="arc-row"{% endif %}>
             <td>{{ item.id }}</td>
             <td>{{ (item.trend_topic or item.custom_prompt or "-")[:50] }}</td>
+            <td>
+                {% if item.story_arc_id %}
+                <span class="arc-badge">Cap {{ item.story_arc_chapter }}/{{ item.story_arc_total }}</span>
+                {% else %}
+                -
+                {% endif %}
+            </td>
             <td>
                 <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
             </td>

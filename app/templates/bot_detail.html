@@ -30,6 +30,9 @@
         <div class="info-row"><span class="info-label">Videos/dia</span><span class="info-value">{{ bot.videos_per_day }}</span></div>
         <div class="info-row"><span class="info-label">Proveedor</span><span class="info-value">{{ bot.video_provider | upper }}</span></div>
         <div class="info-row"><span class="info-label">Duracion</span><span class="info-value">{{ bot.video_duration_seconds }}s</span></div>
+        {% if bot.story_arc_enabled %}
+        <div class="info-row"><span class="info-label">Arco Narrativo</span><span class="info-value">{{ bot.story_arc_chapters }} capitulos ({{ bot.story_arc_chapters * bot.video_duration_seconds }}s total)</span></div>
+        {% endif %}
         <div class="info-row"><span class="info-label">Tendencias</span><span class="info-value">{{ "Si" if bot.use_trends else "No" }}</span></div>
     </div>
 
@@ -56,6 +59,28 @@
     >
         {% if bot.is_enabled %}Desactivar{% else %}Activar (genera {{ bot.videos_per_day }} video{{ "s" if bot.videos_per_day > 1 }}){% endif %}
     </button>
+    {% if bot.story_arc_enabled %}
+    <button
+        hx-post="/bots/{{ bot.slug }}/run-arc"
+        hx-target="#action-result"
+        hx-swap="innerHTML"
+        class="btn-gradient btn-loading-trigger"
+        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
+    >
+        <span class="btn-text">Generar Arco Narrativo ({{ bot.story_arc_chapters }} caps)</span>
+        <span class="btn-spinner" style="display:none;">Generando arco...</span>
+    </button>
+    <button
+        hx-post="/bots/{{ bot.slug }}/run"
+        hx-target="#action-result"
+        hx-swap="innerHTML"
+        class="btn-action btn-loading-trigger"
+        style="padding: 0.6rem 1.5rem; font-size: 0.85rem;"
+    >
+        <span class="btn-text">Ejecutar (1 video)</span>
+        <span class="btn-spinner" style="display:none;">Generando...</span>
+    </button>
+    {% else %}
     <button
         hx-post="/bots/{{ bot.slug }}/run"
         hx-target="#action-result"
@@ -66,6 +91,7 @@
         <span class="btn-text">Ejecutar ahora</span>
         <span class="btn-spinner" style="display:none;">Generando...</span>
     </button>
+    {% endif %}
 </div>
 <div id="action-result"></div>
 

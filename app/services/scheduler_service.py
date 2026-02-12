@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional, Union
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -68,8 +68,12 @@ async def _run_bot_pipeline(bot_id: int) -> None:
             logger.info("Bot %d is disabled, skipping scheduled run", bot_id)
             return
 
-        await pipeline_orchestrator.run_pipeline(bot, db)
-        logger.info("Pipeline Phase 1 completed for bot_id=%d", bot_id)
+        if bot.story_arc_enabled:
+            await pipeline_orchestrator.run_story_arc_pipeline(bot, db)
+            logger.info("Story arc pipeline completed for bot_id=%d", bot_id)
+        else:
+            await pipeline_orchestrator.run_pipeline(bot, db)
+            logger.info("Pipeline Phase 1 completed for bot_id=%d", bot_id)
     except Exception:
         logger.exception("Scheduled pipeline failed for bot_id=%d", bot_id)
     finally:
@@ -210,10 +214,15 @@ def schedule_all_bots(db: Session) -> None:
 # ------------------------------------------------------------------
 
 
-async def trigger_now(bot: Bot, db: Session) -> ContentItem:
+async def trigger_now(
+    bot: Bot, db: Session
+) -> Union[ContentItem, List[ContentItem]]:
     """Immediately run the pipeline for a bot (the "Run Now" button).
 
-    Returns the created ContentItem.
+    If the bot has story arcs enabled, generates all chapters sequentially.
+    Returns the created ContentItem(s).
     """
     logger.info("Manual trigger: running pipeline for bot '%s'", bot.name)
+    if bot.story_arc_enabled:
+        return await pipeline_orchestrator.run_story_arc_pipeline(bot, db)
     return await pipeline_orchestrator.run_pipeline(bot, db)

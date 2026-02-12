@@ -64,6 +64,8 @@ def create_bot(db: Session, data: BotCreate) -> Bot:
         contact_email=data.contact_email,
         script_system_prompt=data.script_system_prompt or template_data.get("script_system_prompt", ""),
         trend_sources=template_data.get("trend_sources", {}),
+        story_arc_enabled=data.story_arc_enabled,
+        story_arc_chapters=data.story_arc_chapters,
     )
 
     # Encrypt API key if provided

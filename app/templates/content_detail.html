@@ -12,6 +12,27 @@
     </p>
 </div>
 
+{% if arc_siblings is defined and arc_siblings|length > 1 %}
+<div class="arc-nav">
+    <h3>Arco Narrativo ({{ arc_siblings|length }} capitulos)</h3>
+    <div class="arc-chapters">
+        {% for sibling in arc_siblings %}
+        <a href="/bots/{{ bot.slug }}/content/{{ sibling.id }}"
+           class="arc-chapter-link {{ 'active' if sibling.id == item.id }}">
+            Cap {{ sibling.story_arc_chapter }}
+            <span class="status-badge status-{{ sibling.status }}" style="font-size:0.7rem;">{{ sibling.status }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% if item.story_arc_premise %}
+    <details>
+        <summary>Premisa del arco</summary>
+        <p>{{ item.story_arc_premise }}</p>
+    </details>
+    {% endif %}
+</div>
+{% endif %}
+
 {% if item.status == "pending_approval" %}
 <!-- ===== APPROVAL SECTION ===== -->
 <div class="approval-section">

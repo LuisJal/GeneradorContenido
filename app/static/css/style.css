@@ -863,4 +863,64 @@ details pre {
     .action-bar { flex-direction: column; }
     .info-grid { grid-template-columns: 1fr; }
     .desc-grid { grid-template-columns: 1fr; }
+    .arc-chapters { flex-direction: column; }
+}
+
+/* ── Story Arc Styles ── */
+.arc-badge {
+    background: var(--gc-accent, #6366f1);
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.arc-nav {
+    background: var(--gc-surface, #1a1a1a);
+    border: 1px solid var(--gc-surface-border, rgba(255,255,255,0.06));
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.arc-nav h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.arc-chapters {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    flex-wrap: wrap;
+}
+
+.arc-chapter-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--gc-surface-border, rgba(255,255,255,0.06));
+    text-decoration: none;
+    font-size: 0.85rem;
+    color: var(--gc-text);
+    transition: all 0.2s;
+}
+
+.arc-chapter-link.active {
+    border-color: var(--gc-accent, #6366f1);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.arc-chapter-link:hover {
+    border-color: var(--gc-accent, #6366f1);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.arc-row {
+    border-left: 3px solid var(--gc-accent, #6366f1);
 }

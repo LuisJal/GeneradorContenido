@@ -1,10 +1,15 @@
 """Video generation service -- strategy pattern for multiple providers."""
 from __future__ import annotations
 
-from typing import Any, Dict, Union
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
+
+import httpx
 
 from app.config import settings
 from app.integrations.aiml_kling_client import AimlKlingClient
+from app.integrations.hedra_client import HedraClient
 from app.integrations.kling_client import KlingClient
 from app.integrations.veo_client import Veo3Client
 from app.models.bot import Bot
@@ -109,7 +114,37 @@ def _get_aiml_kling_client(bot: Bot) -> AimlKlingClient:
     return AimlKlingClient(api_key=api_key)
 
 
-def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient, AimlKlingClient]:
+def _get_talking_head_client(bot: Bot) -> HedraClient:
+    """Build a :class:`HedraClient` using global settings."""
+    from app.services.settings_manager import get_setting
+
+    db = _settings_db_session()
+    try:
+        api_key = get_setting(db, "hedra_api_key")
+    finally:
+        db.close()
+
+    if not api_key:
+        raise ValueError(
+            "Hedra API key is not configured. Set it in Settings."
+        )
+    return HedraClient(api_key=api_key)
+
+
+async def _download_face_image(url: str) -> str:
+    """Download a face reference image from URL to a temp file."""
+    suffix = Path(url.split("?")[0]).suffix or ".png"
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False, prefix="face_")
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0), follow_redirects=True) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        tmp.write(resp.content)
+    tmp.close()
+    logger.debug("Face image downloaded to %s", tmp.name)
+    return tmp.name
+
+
+def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient, AimlKlingClient, HedraClient]:
     """Return the appropriate video client based on ``bot.video_provider``."""
     provider = bot.video_provider
 
@@ -119,6 +154,8 @@ def _get_client(bot: Bot) -> Union[Veo3Client, KlingClient, AimlKlingClient]:
         return _get_kling_client(bot)
     if provider == "aiml_kling":
         return _get_aiml_kling_client(bot)
+    if provider == "talking_head":
+        return _get_talking_head_client(bot)
 
     raise ValueError(f"Unsupported video provider: {provider!r}")
 
@@ -131,6 +168,8 @@ async def submit_video_generation(
     bot: Bot,
     video_prompt: str,
     content_id: int,
+    *,
+    audio_path: Optional[str] = None,
 ) -> str:
     """Select the video provider and submit a generation request.
 
@@ -143,6 +182,8 @@ async def submit_video_generation(
         Natural-language prompt describing the desired video.
     content_id:
         Associated :class:`ContentItem` ID (used for logging context).
+    audio_path:
+        Path to TTS audio file.  Required for ``talking_head`` provider.
 
     Returns
     -------
@@ -159,13 +200,32 @@ async def submit_video_generation(
     client = _get_client(bot)
 
     try:
-        task_id = await client.generate_video(
-            prompt=video_prompt,
-            duration=bot.video_duration_seconds,
-            aspect_ratio=bot.video_aspect_ratio,
-        )
+        if provider == "talking_head":
+            # Talking-head: face image + audio → lip-synced video (Hedra)
+            if not audio_path:
+                raise ValueError("audio_path is required for talking_head provider")
+            face_url = bot.character_face_url
+            if not face_url:
+                raise ValueError("Bot has no character_face_url for talking_head")
+
+            # Download face image if it's a URL
+            if face_url.startswith("http"):
+                face_local = await _download_face_image(face_url)
+            else:
+                face_local = face_url
+
+            task_id = await client.generate_talking_head(
+                face_image_path=face_local,
+                audio_path=audio_path,
+                aspect_ratio=bot.video_aspect_ratio,
+            )
+        else:
+            task_id = await client.generate_video(
+                prompt=video_prompt,
+                duration=bot.video_duration_seconds,
+                aspect_ratio=bot.video_aspect_ratio,
+            )
     finally:
-        # Ensure we clean up the HTTP client for BaseAPIClient subclasses
         if hasattr(client, "close"):
             await client.close()
 

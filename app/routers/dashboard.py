@@ -119,6 +119,9 @@ async def bot_create_submit(
     video_provider: str = Form("veo3"),
     video_duration_seconds: int = Form(15),
     contact_email: str = Form(""),
+    character_face_url: str = Form(""),
+    character_voice_id: str = Form(""),
+    character_personality: str = Form(""),
     template: str = Form(""),
 ):
     try:
@@ -138,6 +141,9 @@ async def bot_create_submit(
             video_provider=video_provider,
             video_duration_seconds=video_duration_seconds,
             contact_email=contact_email or None,
+            character_face_url=character_face_url or None,
+            character_voice_id=character_voice_id or None,
+            character_personality=character_personality or None,
             template=template or None,
         )
         bot = bot_manager.create_bot(db, data)
@@ -196,6 +202,9 @@ async def bot_edit_submit(
     video_duration_seconds: int = Form(15),
     contact_email: str = Form(""),
     script_system_prompt: str = Form(""),
+    character_face_url: str = Form(""),
+    character_voice_id: str = Form(""),
+    character_personality: str = Form(""),
     story_arc_enabled: Optional[str] = Form(None),
     story_arc_chapters: int = Form(3),
 ):
@@ -215,6 +224,9 @@ async def bot_edit_submit(
             video_duration_seconds=video_duration_seconds,
             contact_email=contact_email or None,
             script_system_prompt=script_system_prompt or None,
+            character_face_url=character_face_url or None,
+            character_voice_id=character_voice_id or None,
+            character_personality=character_personality or None,
             story_arc_enabled=story_arc_enabled is not None,
             story_arc_chapters=story_arc_chapters,
         )

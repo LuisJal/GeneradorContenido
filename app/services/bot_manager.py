@@ -64,6 +64,9 @@ def create_bot(db: Session, data: BotCreate) -> Bot:
         contact_email=data.contact_email,
         script_system_prompt=data.script_system_prompt or template_data.get("script_system_prompt", ""),
         trend_sources=template_data.get("trend_sources", {}),
+        character_face_url=data.character_face_url or template_data.get("character_face_url"),
+        character_voice_id=data.character_voice_id or template_data.get("character_voice_id"),
+        character_personality=data.character_personality or template_data.get("character_personality"),
         story_arc_enabled=data.story_arc_enabled,
         story_arc_chapters=data.story_arc_chapters,
     )

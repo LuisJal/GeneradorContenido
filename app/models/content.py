@@ -55,6 +55,9 @@ class ContentItem(Base):
     script_model: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     video_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Audio (talking-head pipeline)
+    audio_file_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Video
     video_provider: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     video_task_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)

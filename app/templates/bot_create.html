@@ -54,10 +54,11 @@
         <legend>Configuracion de video</legend>
 
         <label for="video_provider">Proveedor de video</label>
-        <select id="video_provider" name="video_provider">
+        <select id="video_provider" name="video_provider" onchange="toggleCharacterFields()">
             <option value="aiml_kling" selected>Kling V3 via AIML (3-15s, economico)</option>
             <option value="veo3">Google Veo 3 (Scene Extension hasta 60s)</option>
             <option value="kling3">Kling 3.0 (directo)</option>
+            <option value="talking_head">Talking Head (ElevenLabs + Hedra)</option>
         </select>
 
         <label for="video_duration_seconds">Duracion del video (segundos)</label>
@@ -66,6 +67,27 @@
 
         <label for="videos_per_day">Videos por dia</label>
         <input type="number" id="videos_per_day" name="videos_per_day" value="1" min="1" max="10">
+    </fieldset>
+
+    <fieldset id="character-fieldset" style="display:none;">
+        <legend>Personaje (Talking Head)</legend>
+        <p style="color: var(--gc-text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Configura la cara y voz del personaje IA. Se usaran en todos los videos para consistencia.
+        </p>
+
+        <label for="character_face_url">URL de imagen de referencia (cara)</label>
+        <input type="url" id="character_face_url" name="character_face_url"
+               placeholder="https://ejemplo.com/cara-referencia.png">
+        <small>Imagen frontal del personaje para lip-sync.</small>
+
+        <label for="character_voice_id">ElevenLabs Voice ID</label>
+        <input type="text" id="character_voice_id" name="character_voice_id"
+               placeholder="pNInz6obpgDQGcFmaJgB">
+        <small>ID de la voz en ElevenLabs.</small>
+
+        <label for="character_personality">Personalidad del personaje</label>
+        <textarea id="character_personality" name="character_personality" rows="4"
+                  placeholder="Describe la personalidad, tono y estilo del personaje..."></textarea>
     </fieldset>
 
     <fieldset>
@@ -89,4 +111,11 @@
         <a href="/" class="btn-action">Cancelar</a>
     </div>
 </form>
+<script>
+function toggleCharacterFields() {
+    var provider = document.getElementById('video_provider').value;
+    var fieldset = document.getElementById('character-fieldset');
+    fieldset.style.display = (provider === 'talking_head') ? '' : 'none';
+}
+</script>
 {% endblock %}

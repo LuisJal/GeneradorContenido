@@ -232,6 +232,125 @@ def test_download_video():
 
 
 # ------------------------------------------------------------------
+# Talking Head provider
+# ------------------------------------------------------------------
+
+
+def test_get_client_talking_head():
+    """provider='talking_head' with hedra_api_key should return HedraClient."""
+    bot = _make_bot("talking_head")
+
+    with patch("app.services.video_generator._settings_db_session") as mock_db:
+        mock_db.return_value = MagicMock()
+        with patch(
+            "app.services.settings_manager.get_setting",
+            side_effect=_mock_get_setting({"hedra_api_key": "hedra-test-key"}),
+        ):
+            with patch("app.services.video_generator.HedraClient") as hedra_cls:
+                _get_client(bot)
+                hedra_cls.assert_called_once_with(api_key="hedra-test-key")
+
+
+def test_get_client_talking_head_no_key():
+    """Missing Hedra API key should raise ValueError."""
+    bot = _make_bot("talking_head")
+
+    with patch("app.services.video_generator._settings_db_session") as mock_db:
+        mock_db.return_value = MagicMock()
+        with patch(
+            "app.services.settings_manager.get_setting",
+            return_value="",
+        ):
+            with pytest.raises(ValueError, match="Hedra"):
+                _get_client(bot)
+
+
+def test_submit_talking_head_requires_audio():
+    """talking_head without audio_path should raise ValueError."""
+    bot = _make_bot("talking_head")
+    bot.character_face_url = "https://example.com/face.png"
+
+    mock_client = AsyncMock()
+    mock_client.close = AsyncMock()
+
+    with patch("app.services.video_generator._get_client", return_value=mock_client):
+        with pytest.raises(ValueError, match="audio_path"):
+            asyncio.get_event_loop().run_until_complete(
+                submit_video_generation(bot, "prompt", content_id=1)
+            )
+
+
+def test_submit_talking_head_requires_face_url():
+    """talking_head without character_face_url should raise ValueError."""
+    bot = _make_bot("talking_head")
+    bot.character_face_url = None
+
+    mock_client = AsyncMock()
+    mock_client.close = AsyncMock()
+
+    with patch("app.services.video_generator._get_client", return_value=mock_client):
+        with pytest.raises(ValueError, match="character_face_url"):
+            asyncio.get_event_loop().run_until_complete(
+                submit_video_generation(
+                    bot, "prompt", content_id=1, audio_path="/tmp/audio.mp3"
+                )
+            )
+
+
+def test_submit_talking_head_calls_generate():
+    """talking_head should call generate_talking_head with face and audio paths."""
+    bot = _make_bot("talking_head")
+    bot.character_face_url = "/local/face.png"
+
+    mock_client = AsyncMock()
+    mock_client.generate_talking_head = AsyncMock(return_value="hedra-gen-123")
+    mock_client.close = AsyncMock()
+
+    with patch("app.services.video_generator._get_client", return_value=mock_client):
+        result = asyncio.get_event_loop().run_until_complete(
+            submit_video_generation(
+                bot, "prompt", content_id=1, audio_path="/tmp/audio.mp3"
+            )
+        )
+
+    assert result == "hedra-gen-123"
+    mock_client.generate_talking_head.assert_called_once_with(
+        face_image_path="/local/face.png",
+        audio_path="/tmp/audio.mp3",
+        aspect_ratio="9:16",
+    )
+
+
+def test_submit_talking_head_downloads_remote_face():
+    """talking_head with URL face should download it first."""
+    bot = _make_bot("talking_head")
+    bot.character_face_url = "https://example.com/face.png"
+
+    mock_client = AsyncMock()
+    mock_client.generate_talking_head = AsyncMock(return_value="hedra-gen-456")
+    mock_client.close = AsyncMock()
+
+    with patch("app.services.video_generator._get_client", return_value=mock_client):
+        with patch(
+            "app.services.video_generator._download_face_image",
+            new_callable=AsyncMock,
+            return_value="/tmp/face_downloaded.png",
+        ):
+            result = asyncio.get_event_loop().run_until_complete(
+                submit_video_generation(
+                    bot, "prompt", content_id=1, audio_path="/tmp/audio.mp3"
+                )
+            )
+
+    assert result == "hedra-gen-456"
+    mock_client.generate_talking_head.assert_called_once_with(
+        face_image_path="/tmp/face_downloaded.png",
+        audio_path="/tmp/audio.mp3",
+        aspect_ratio="9:16",
+    )
+
+
+# ------------------------------------------------------------------
 # Veo3Client: Scene Extension
 # ------------------------------------------------------------------
 

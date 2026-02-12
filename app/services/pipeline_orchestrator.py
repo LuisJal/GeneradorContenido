@@ -26,6 +26,7 @@ from app.models.log_entry import PipelineLog
 # from app.services import script_generator, video_generator, telegram_approver, publisher
 from app.services import script_generator, video_generator, publisher
 from app.services.trend_scraper import get_trending_topics, select_unused_topic
+from app.utils.file_storage import get_audio_path
 from app.utils.logging_config import get_logger
 
 logger = get_logger("pipeline")
@@ -86,6 +87,59 @@ def _set_error(
     content.error_message = error_message
     content.retry_count = (content.retry_count or 0) + 1
     db.commit()
+
+
+def _settings_session():
+    """Create a short-lived sync Session for reading global settings."""
+    from sqlalchemy.orm import Session as OrmSession
+    from app.database import sync_engine
+    return OrmSession(sync_engine)
+
+
+async def _generate_tts_audio(
+    bot: Bot, content: ContentItem, script: dict, db: Session
+) -> str:
+    """Generate TTS audio from script text via ElevenLabs.
+
+    Returns the local file path where the audio was saved.
+    """
+    from app.integrations.elevenlabs_client import ElevenLabsClient
+    from app.services.settings_manager import get_setting
+
+    sess = _settings_session()
+    try:
+        api_key = get_setting(sess, "elevenlabs_api_key")
+    finally:
+        sess.close()
+
+    if not api_key:
+        raise ValueError("ElevenLabs API key not configured. Set it in Settings.")
+
+    voice_id = bot.character_voice_id
+    if not voice_id:
+        raise ValueError("Bot has no character_voice_id for TTS.")
+
+    # Build speech text from script parts
+    parts = []
+    for key in ("hook", "body", "cta"):
+        if script.get(key):
+            parts.append(script[key])
+    text = " ".join(parts).strip()
+    if not text:
+        raise ValueError("Script has no text to synthesise.")
+
+    output_path = str(get_audio_path(bot.slug, content.id))
+
+    client = ElevenLabsClient(api_key=api_key)
+    saved = await client.text_to_speech(
+        text=text,
+        voice_id=voice_id,
+        output_path=output_path,
+        language_code=bot.language or "es",
+    )
+    content.audio_file_path = saved
+    db.commit()
+    return saved
 
 
 def _select_topic(bot: Bot, db: Session) -> str:
@@ -157,10 +211,17 @@ async def run_pipeline(bot: Bot, db: Session) -> ContentItem:
         db.commit()
         _log(db, bot.id, content_id, "video_prompt_generated", "Video prompt ready")
 
-        # 5. Submit video generation
+        # 5. TTS audio generation (talking_head provider only)
+        audio_path = None
+        if bot.video_provider == "talking_head":
+            _log(db, bot.id, content_id, "tts_generating", "Generating TTS audio")
+            audio_path = await _generate_tts_audio(bot, content, script, db)
+            _log(db, bot.id, content_id, "tts_generated", f"Audio at: {audio_path}")
+
+        # 6. Submit video generation
         _set_status(db, content, ContentStatus.VIDEO_GENERATING)
         task_id = await video_generator.submit_video_generation(
-            bot, video_prompt, content_id
+            bot, video_prompt, content_id, audio_path=audio_path
         )
         content.video_task_id = task_id
         content.video_provider = bot.video_provider
@@ -259,10 +320,17 @@ async def run_story_arc_pipeline(bot: Bot, db: Session) -> List[ContentItem]:
             _log(db, bot.id, content_id, "video_prompt_generated",
                  f"Chapter {chapter} video prompt ready")
 
+            # TTS audio generation (talking_head provider only)
+            audio_path = None
+            if bot.video_provider == "talking_head":
+                audio_path = await _generate_tts_audio(bot, content, script, db)
+                _log(db, bot.id, content_id, "tts_generated",
+                     f"Chapter {chapter} audio ready")
+
             # Submit video generation
             _set_status(db, content, ContentStatus.VIDEO_GENERATING)
             task_id = await video_generator.submit_video_generation(
-                bot, video_prompt, content_id
+                bot, video_prompt, content_id, audio_path=audio_path
             )
             content.video_task_id = task_id
             content.video_provider = bot.video_provider

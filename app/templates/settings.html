@@ -67,6 +67,24 @@
     </fieldset>
 
     <fieldset class="settings-fieldset">
+        <legend>ElevenLabs (voz - Talking Head)</legend>
+
+        <label for="elevenlabs_api_key">ElevenLabs API Key</label>
+        <input type="password" id="elevenlabs_api_key" name="elevenlabs_api_key"
+               placeholder="{% if current.elevenlabs_api_key %}{{ current.elevenlabs_api_key }}{% else %}Tu clave API de ElevenLabs{% endif %}">
+        <small>Genera voces realistas para bots de tipo Talking Head. Obtenla en <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a></small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
+        <legend>Hedra (video - Talking Head)</legend>
+
+        <label for="hedra_api_key">Hedra API Key</label>
+        <input type="password" id="hedra_api_key" name="hedra_api_key"
+               placeholder="{% if current.hedra_api_key %}{{ current.hedra_api_key }}{% else %}Tu clave API de Hedra{% endif %}">
+        <small>Genera videos de lip-sync con Character-3. Obtenla en <a href="https://hedra.com" target="_blank">hedra.com</a></small>
+    </fieldset>
+
+    <fieldset class="settings-fieldset">
         <legend>Telegram (notificaciones opcionales)</legend>
 
         <label for="telegram_bot_token">Token del Bot de Telegram</label>

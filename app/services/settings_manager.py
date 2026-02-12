@@ -18,6 +18,8 @@ ENCRYPTED_KEYS = {
     "kling_access_key",
     "kling_secret_key",
     "aiml_api_key",
+    "elevenlabs_api_key",
+    "hedra_api_key",
     "telegram_bot_token",
 }
 
@@ -30,6 +32,8 @@ SETTING_DEFINITIONS: Dict[str, str] = {
     "kling_secret_key": "Secret Key de Kling (API directa)",
     "kling_api_key": "Clave API de Kling legacy (solo si no usas access/secret)",
     "aiml_api_key": "Clave API de AIML (acceso economico a Kling V3)",
+    "elevenlabs_api_key": "Clave API de ElevenLabs (voz para Talking Head)",
+    "hedra_api_key": "Clave API de Hedra (video lip-sync Character-3)",
     "telegram_bot_token": "Token del bot de Telegram (notificaciones opcionales)",
 }
 
